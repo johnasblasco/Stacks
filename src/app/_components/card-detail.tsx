@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { api } from "@/trpc/react";
 
@@ -17,6 +17,34 @@ function formatTimestamp(date: Date): string {
   }).format(new Date(date));
 }
 
+/** Extract the first URL from a block of text. */
+function extractFirstUrl(text: string): string | null {
+  const match = text.match(/https?:\/\/[^\s]+/);
+  return match ? match[0] : null;
+}
+
+/** Render text with auto-detected clickable links. */
+function renderNoteWithLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noreferrer"
+          className="text-violet-600 underline hover:text-violet-700 dark:text-violet-300 dark:hover:text-violet-200"
+        >
+          {part}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
   const [copied, setCopied] = useState(false);
   const utils = api.useUtils();
@@ -29,7 +57,6 @@ export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
   const [editTitle, setEditTitle] = useState(card?.title ?? "");
   const [editSummary, setEditSummary] = useState(card?.summary ?? "");
   const [editNote, setEditNote] = useState(card?.note ?? "");
-  const [editUrl, setEditUrl] = useState(card?.url ?? "");
   const [editTags, setEditTags] = useState<string[]>(card?.tags ?? []);
   const [editTagInput, setEditTagInput] = useState("");
   const [editCategory, setEditCategory] = useState(card?.category ?? "");
@@ -82,18 +109,25 @@ export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
     editTitle.trim() !== c.title ||
     editSummary.trim() !== c.summary ||
     editNote.trim() !== c.note ||
-    editUrl.trim() !== (c.url ?? "") ||
     editCategory.trim() !== c.category ||
     JSON.stringify(editTags) !== JSON.stringify(c.tags);
 
+  // Preview: render note text with auto-detected clickable links
+  const notePreview = useMemo(
+    () => renderNoteWithLinks(editNote),
+    [editNote],
+  );
+
   function saveEdits() {
     if (!editTitle.trim() || !editSummary.trim() || !editNote.trim()) return;
+    // Auto-extract the first URL from the note for the DB url field
+    const extractedUrl = extractFirstUrl(editNote.trim());
     updateCard.mutate({
       id: c.id,
       title: editTitle.trim(),
       summary: editSummary.trim(),
       note: editNote.trim(),
-      url: editUrl.trim() || null,
+      url: extractedUrl,
       tags: editTags,
       category: editCategory.trim() || c.category,
     });
@@ -103,7 +137,6 @@ export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
     setEditTitle(c.title);
     setEditSummary(c.summary);
     setEditNote(c.note);
-    setEditUrl(c.url ?? "");
     setEditTags([...c.tags]);
     setEditCategory(c.category);
     setEditTagInput("");
@@ -198,30 +231,23 @@ export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
             </button>
           </div>
         </div>
-        {/* Note / saved text */}
+        {/* Note — editable textarea + live preview with clickable links */}
         <div>
           <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-white/40">
-            Saved text
+            Note
           </h3>
           <textarea
             value={editNote}
             onChange={(e) => setEditNote(e.target.value)}
             rows={6}
             className="w-full resize-none rounded-lg border border-neutral-300 bg-neutral-100 p-3 text-sm text-neutral-800 outline-none focus:border-violet-500 dark:border-white/20 dark:bg-black/20 dark:text-white/80 dark:focus:border-violet-400"
-            placeholder="Card content…"
+            placeholder="Type or paste text and links here…"
           />
-        </div>
-        {/* URL */}
-        <div>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-white/40">
-            URL
-          </h3>
-          <input
-            value={editUrl}
-            onChange={(e) => setEditUrl(e.target.value)}
-            className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-900 outline-none focus:border-violet-500 dark:border-white/20 dark:bg-black/30 dark:text-white dark:focus:border-violet-400"
-            placeholder="https://…"
-          />
+          {editNote.trim() && (
+            <div className="mt-2 whitespace-pre-wrap rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-700 dark:border-white/10 dark:bg-black/10 dark:text-white/70">
+              {notePreview}
+            </div>
+          )}
         </div>
         {/* Folder / Category */}
         <div>

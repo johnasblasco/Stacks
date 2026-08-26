@@ -1,0 +1,1 @@
+ALTER TABLE "secret_card" ADD COLUMN "trashedAt" timestamp with time zone;

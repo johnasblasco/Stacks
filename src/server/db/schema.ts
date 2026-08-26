@@ -1,5 +1,10 @@
 import { relations } from "drizzle-orm";
-import { index, pgTableCreator, primaryKey } from "drizzle-orm/pg-core";
+import {
+  index,
+  pgTableCreator,
+  primaryKey,
+  unique,
+} from "drizzle-orm/pg-core";
 import { type AdapterAccount } from "next-auth/adapters";
 
 /**
@@ -9,6 +14,62 @@ import { type AdapterAccount } from "next-auth/adapters";
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
  */
 export const createTable = pgTableCreator((name) => `secret_${name}`);
+
+export const cardStatus = ["active", "archived", "trashed"] as const;
+export type CardStatus = (typeof cardStatus)[number];
+
+export const cards = createTable(
+  "card",
+  (d) => ({
+    id: d.integer().primaryKey().generatedByDefaultAsIdentity(),
+    userId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => users.id),
+    url: d.text(),
+    note: d.text().notNull(),
+    title: d.text().notNull(),
+    summary: d.text().notNull(),
+    tags: d.jsonb("tags").$type<string[]>().notNull(),
+    category: d.varchar({ length: 128 }).notNull(),
+    status: d.varchar({ length: 16 }).$type<CardStatus>().notNull().default("active"),
+    savedAt: d
+      .timestamp({ withTimezone: true })
+      .$defaultFn(() => /* @__PURE__ */ new Date())
+      .notNull(),
+    trashedAt: d.timestamp({ withTimezone: true }),
+  }),
+  (t) => [
+    index("card_user_idx").on(t.userId),
+    index("card_category_idx").on(t.category),
+    index("card_status_idx").on(t.status),
+    index("card_saved_at_idx").on(t.savedAt),
+  ],
+);
+
+/**
+ * Folders are first-class so they can exist even with zero cards inside
+ * (created manually via the board's right-click menu).
+ */
+export const folders = createTable(
+  "folder",
+  (d) => ({
+    id: d.integer().primaryKey().generatedByDefaultAsIdentity(),
+    userId: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => users.id),
+    name: d.varchar({ length: 128 }).notNull(),
+    createdAt: d
+      .timestamp({ withTimezone: true })
+      .$defaultFn(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  }),
+  (t) => [
+    index("folder_user_idx").on(t.userId),
+    unique("folder_user_name_key").on(t.userId, t.name),
+  ],
+);
 
 export const posts = createTable(
   "post",
