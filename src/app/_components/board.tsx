@@ -406,43 +406,43 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   return (
     <section className="flex h-full flex-1 flex-col overflow-y-auto">
       {/* Quick-add */}
-      <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white/90 px-4 py-4 pr-36 backdrop-blur dark:border-white/10 dark:bg-[#15162c]/90 sm:px-6 sm:pr-48">
-        {/* Search — prominent, top of the header */}
-        <div className="relative">
-          <svg
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-white/40"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="m21 21-5.2-5.2M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
-            />
-          </svg>
-          <input
-            ref={searchRef}
-            type="text"
-            value={query}
-            onChange={(e) => handleQueryChange(e.target.value)}
-            placeholder="Search everything…  ⌘K"
-            className="w-full rounded-full border border-neutral-300 bg-white py-2 pl-10 pr-4 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/40 dark:focus:border-violet-400 dark:focus:ring-violet-400/20"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => handleQueryChange("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-white/40 dark:hover:text-white/70"
+      <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white/90 px-4 py-4 backdrop-blur dark:border-white/10 dark:bg-[#15162c]/90 sm:px-6">
+        {/* Search bar + 3 buttons on the same row */}
+        <div className="flex items-center gap-2">
+          {/* Search — takes remaining space */}
+          <div className="relative flex-1">
+            <svg
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-white/40"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
             >
-              ✕
-            </button>
-          )}
-        </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m21 21-5.2-5.2M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+              />
+            </svg>
+            <input
+              ref={searchRef}
+              type="text"
+              value={query}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              placeholder="Search everything…  ⌘K"
+              className="w-full rounded-full border border-neutral-300 bg-white py-2 pl-10 pr-4 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/40 dark:focus:border-violet-400 dark:focus:ring-violet-400/20"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => handleQueryChange("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-white/40 dark:hover:text-white/70"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
-        {/* Compact filter row — two pill dropdowns + refresh */}
-        <div className="mt-3 flex items-center justify-center gap-2">
           {/* Status pill dropdown */}
           <select
             value={status}
@@ -450,7 +450,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
               setStatus(e.target.value as CardStatus);
               setSelected(new Set());
             }}
-            className="cursor-pointer appearance-none rounded-full border-0 bg-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
+            className="shrink-0 cursor-pointer appearance-none rounded-full border-0 bg-neutral-100 px-3 py-2 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
           >
             {STATUS_TABS.map((tab) => (
               <option key={tab.value} value={tab.value}>
@@ -463,7 +463,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           <select
             value={category ?? ""}
             onChange={(e) => setCategory(e.target.value || null)}
-            className="cursor-pointer appearance-none rounded-full border-0 bg-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
+            className="shrink-0 cursor-pointer appearance-none rounded-full border-0 bg-neutral-100 px-3 py-2 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
           >
             <option value="">All folders</option>
             {categories.map((cat) => (
@@ -478,7 +478,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
             type="button"
             onClick={() => invalidateAll()}
             title="Refresh"
-            className="rounded-full bg-neutral-100 p-1.5 text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 dark:bg-white/10 dark:text-white/50 dark:hover:bg-white/20 dark:hover:text-white"
+            className="shrink-0 rounded-full bg-neutral-100 p-2 text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 dark:bg-white/10 dark:text-white/50 dark:hover:bg-white/20 dark:hover:text-white"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
@@ -488,7 +488,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
         </div>
 
         {/* Drop a link / quick-add — center stage */}
-        <div className="mx-auto mt-6 max-w-lg">
+        <div className="mx-auto mt-5 max-w-lg">
           <CaptureInput ref={captureInputRef} onResult={handleCaptureResult} categories={categories} />
         </div>
 
