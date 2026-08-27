@@ -1,6 +1,7 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import { signOut } from "next-auth/react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
 
 import { Board } from "./board";
 
@@ -12,6 +13,18 @@ export function AppShell() {
   const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
   const [chatOpen, setChatOpen] = useState(true);
   const [expandCardId, setExpandCardId] = useState<number | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleSignOut = useCallback(() => {
+    setLoggingOut(true);
+  }, []);
+
+  // After the fade-out animation, actually sign out
+  useEffect(() => {
+    if (!loggingOut) return;
+    const timer = setTimeout(() => void signOut({ callbackUrl: "/" }), 600);
+    return () => clearTimeout(timer);
+  }, [loggingOut]);
 
   const openCard = (id: number) => {
     setExpandCardId(id);
@@ -20,6 +33,13 @@ export function AppShell() {
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-[#15162c] dark:text-white">
+      {/* Logout fade-out overlay */}
+      {loggingOut && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white opacity-100 transition-opacity duration-500 dark:bg-[#15162c]">
+          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-neutral-300 border-t-violet-500 dark:border-white/20 dark:border-t-violet-400" />
+          <p className="text-sm text-neutral-500 dark:text-white/50">Signing out…</p>
+        </div>
+      )}
       {/* Board — main surface */}
       <Board
         highlightedIds={highlightedIds}
@@ -34,6 +54,7 @@ export function AppShell() {
           <ChatPanel
             onAnswered={(ids) => setHighlightedIds(ids)}
             onSelectCard={openCard}
+            onSignOut={handleSignOut}
           />
         </Suspense>
       </div>
@@ -46,6 +67,7 @@ export function AppShell() {
               onClose={() => setChatOpen(false)}
               onAnswered={(ids) => setHighlightedIds(ids)}
               onSelectCard={openCard}
+              onSignOut={handleSignOut}
             />
           </Suspense>
         </div>

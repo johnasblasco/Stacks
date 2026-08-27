@@ -1,6 +1,5 @@
 "use client";
 
-import { signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
 import { api } from "@/trpc/react";
@@ -21,14 +20,15 @@ type ChatMessage = {
 interface ChatPanelProps {
   onAnswered: (usedCardIds: number[]) => void;
   onSelectCard: (id: number) => void;
-  /** Rendered as a ✕ button in the header (used by the mobile drawer). */
   onClose?: () => void;
+  onSignOut?: () => void;
 }
 
 export function ChatPanel({
   onAnswered,
   onSelectCard,
   onClose,
+  onSignOut,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState("");
@@ -106,13 +106,13 @@ export function ChatPanel({
             <ThemeToggle />
             <button
               type="button"
-              onClick={() => void signOut({ callbackUrl: "/" })}
+              onClick={() => onSignOut?.()}
               title="Sign out"
               aria-label="Sign out"
-              className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700 dark:border-white/15 dark:bg-white/5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+              className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[15px] font-medium text-red-700 transition hover:bg-neutral-100 hover:text-neutral-700 dark:border-white/15 dark:bg-white/5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
             >
               <span aria-hidden>⏻</span>
-              Sign out
+           
             </button>
             {onClose && (
               <button
