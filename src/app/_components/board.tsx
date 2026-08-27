@@ -68,17 +68,17 @@ function formatDate(date: Date): string {
 
 /** Maps color name → Tailwind bg/border classes for card tinting. */
 const COLOR_MAP: Record<string, { bg: string; border: string }> = {
-  Coral: { bg: "bg-[#faafa8]", border: "border-[#f28b82]" },
-  Peach: { bg: "bg-[#f7bdce]", border: "border-[#fbbc04]" },
-  Sand: { bg: "bg-[#fcf4a3]", border: "border-[#fff475]" },
-  Mint: { bg: "bg-[#c9f2c7]", border: "border-[#ccff90]" },
-  Sage: { bg: "bg-[#c4edb8]", border: "border-[#a8dab5]" },
-  Fog: { bg: "bg-[#d4e5fc]", border: "border-[#aecbfa]" },
-  Storm: { bg: "bg-[#d3d5fc]", border: "border-[#d7aefb]" },
-  Dusk: { bg: "bg-[#e8d5f5]", border: "border-[#b39ddb]" },
-  Blossom: { bg: "bg-[#fce4ec]", border: "border-[#f48fb1]" },
-  Clay: { bg: "bg-[#efebe9]", border: "border-[#d7ccc8]" },
-  Chalk: { bg: "bg-[#e8eaed]", border: "border-[#dadce0]" },
+  Coral:   { bg: "bg-[#faafa8] dark:bg-[#3b1c1c]", border: "border-[#f28b82] dark:border-[#a84040]" },
+  Peach:   { bg: "bg-[#f7bdce] dark:bg-[#3b2428]", border: "border-[#fbbc04] dark:border-[#a88030]" },
+  Sand:    { bg: "bg-[#fcf4a3] dark:bg-[#3b3820]", border: "border-[#fff475] dark:border-[#a89840]" },
+  Mint:    { bg: "bg-[#c9f2c7] dark:bg-[#1c3b1c]", border: "border-[#ccff90] dark:border-[#40a840]" },
+  Sage:    { bg: "bg-[#c4edb8] dark:bg-[#1c3320]", border: "border-[#a8dab5] dark:border-[#408a60]" },
+  Fog:     { bg: "bg-[#d4e5fc] dark:bg-[#1c263b]", border: "border-[#aecbfa] dark:border-[#4060a8]" },
+  Storm:   { bg: "bg-[#d3d5fc] dark:bg-[#201c3b]", border: "border-[#d7aefb] dark:border-[#6040a8]" },
+  Dusk:    { bg: "bg-[#e8d5f5] dark:bg-[#2c1c3b]", border: "border-[#b39ddb] dark:border-[#7040a0]" },
+  Blossom: { bg: "bg-[#fce4ec] dark:bg-[#3b1c28]", border: "border-[#f48fb1] dark:border-[#a84060]" },
+  Clay:    { bg: "bg-[#efebe9] dark:bg-[#2a2523]", border: "border-[#d7ccc8] dark:border-[#7a7068]" },
+  Chalk:   { bg: "bg-[#e8eaed] dark:bg-[#252729]", border: "border-[#dadce0] dark:border-[#606468]" },
 };
 
 interface BoardProps {
@@ -611,17 +611,17 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                 <div className="absolute bottom-full left-0 z-50 mb-2 flex flex-wrap gap-1.5 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-[#252749]">
                   {[
                     { name: "Default", border: "border-neutral-200 dark:border-white/10", bg: "bg-white dark:bg-[#1d1f3a]" },
-                    { name: "Coral", border: "border-[#f28b82]", bg: "bg-[#faafa8]" },
-                    { name: "Peach", border: "border-[#fbbc04]", bg: "bg-[#f7bdce]" },
-                    { name: "Sand", border: "border-[#fff475]", bg: "bg-[#fcf4a3]" },
-                    { name: "Mint", border: "border-[#ccff90]", bg: "bg-[#c9f2c7]" },
-                    { name: "Sage", border: "border-[#a8dab5]", bg: "bg-[#c4edb8]" },
-                    { name: "Fog", border: "border-[#aecbfa]", bg: "bg-[#d4e5fc]" },
-                    { name: "Storm", border: "border-[#d7aefb]", bg: "bg-[#d3d5fc]" },
-                    { name: "Dusk", border: "border-[#b39ddb]", bg: "bg-[#e8d5f5]" },
-                    { name: "Blossom", border: "border-[#f48fb1]", bg: "bg-[#fce4ec]" },
-                    { name: "Clay", border: "border-[#d7ccc8]", bg: "bg-[#efebe9]" },
-                    { name: "Chalk", border: "border-[#dadce0]", bg: "bg-[#e8eaed]" },
+                    { name: "Coral",   border: "border-[#f28b82] dark:border-[#a84040]", bg: "bg-[#faafa8] dark:bg-[#3b1c1c]" },
+                    { name: "Peach",   border: "border-[#fbbc04] dark:border-[#a88030]", bg: "bg-[#f7bdce] dark:bg-[#3b2428]" },
+                    { name: "Sand",    border: "border-[#fff475] dark:border-[#a89840]", bg: "bg-[#fcf4a3] dark:bg-[#3b3820]" },
+                    { name: "Mint",    border: "border-[#ccff90] dark:border-[#40a840]", bg: "bg-[#c9f2c7] dark:bg-[#1c3b1c]" },
+                    { name: "Sage",    border: "border-[#a8dab5] dark:border-[#408a60]", bg: "bg-[#c4edb8] dark:bg-[#1c3320]" },
+                    { name: "Fog",     border: "border-[#aecbfa] dark:border-[#4060a8]", bg: "bg-[#d4e5fc] dark:bg-[#1c263b]" },
+                    { name: "Storm",   border: "border-[#d7aefb] dark:border-[#6040a8]", bg: "bg-[#d3d5fc] dark:bg-[#201c3b]" },
+                    { name: "Dusk",    border: "border-[#b39ddb] dark:border-[#7040a0]", bg: "bg-[#e8d5f5] dark:bg-[#2c1c3b]" },
+                    { name: "Blossom", border: "border-[#f48fb1] dark:border-[#a84060]", bg: "bg-[#fce4ec] dark:bg-[#3b1c28]" },
+                    { name: "Clay",    border: "border-[#d7ccc8] dark:border-[#7a7068]", bg: "bg-[#efebe9] dark:bg-[#2a2523]" },
+                    { name: "Chalk",   border: "border-[#dadce0] dark:border-[#606468]", bg: "bg-[#e8eaed] dark:bg-[#252729]" },
                   ].map((c) => (
                     <button
                       key={c.name}

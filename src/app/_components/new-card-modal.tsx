@@ -14,17 +14,17 @@ interface NewCardModalProps {
 /** Google Keep color palette — name → bg/text CSS classes. */
 const NOTE_COLORS = [
   { name: "Default", bg: "", border: "" },
-  { name: "Coral", bg: "bg-[#faafa8]", border: "border-[#f28b82]" },
-  { name: "Peach", bg: "bg-[#f7bdce]", border: "border-[#fbbc04]" },
-  { name: "Sand", bg: "bg-[#fcf4a3]", border: "border-[#fff475]" },
-  { name: "Mint", bg: "bg-[#c9f2c7]", border: "border-[#ccff90]" },
-  { name: "Sage", bg: "bg-[#c4edb8]", border: "border-[#a8dab5]" },
-  { name: "Fog", bg: "bg-[#d4e5fc]", border: "border-[#aecbfa]" },
-  { name: "Storm", bg: "bg-[#d3d5fc]", border: "border-[#d7aefb]" },
-  { name: "Dusk", bg: "bg-[#e8d5f5]", border: "border-[#b39ddb]" },
-  { name: "Blossom", bg: "bg-[#fce4ec]", border: "border-[#f48fb1]" },
-  { name: "Clay", bg: "bg-[#efebe9]", border: "border-[#d7ccc8]" },
-  { name: "Chalk", bg: "bg-[#e8eaed]", border: "border-[#dadce0]" },
+  { name: "Coral",   bg: "bg-[#faafa8] dark:bg-[#3b1c1c]", border: "border-[#f28b82] dark:border-[#a84040]" },
+  { name: "Peach",   bg: "bg-[#f7bdce] dark:bg-[#3b2428]", border: "border-[#fbbc04] dark:border-[#a88030]" },
+  { name: "Sand",    bg: "bg-[#fcf4a3] dark:bg-[#3b3820]", border: "border-[#fff475] dark:border-[#a89840]" },
+  { name: "Mint",    bg: "bg-[#c9f2c7] dark:bg-[#1c3b1c]", border: "border-[#ccff90] dark:border-[#40a840]" },
+  { name: "Sage",    bg: "bg-[#c4edb8] dark:bg-[#1c3320]", border: "border-[#a8dab5] dark:border-[#408a60]" },
+  { name: "Fog",     bg: "bg-[#d4e5fc] dark:bg-[#1c263b]", border: "border-[#aecbfa] dark:border-[#4060a8]" },
+  { name: "Storm",   bg: "bg-[#d3d5fc] dark:bg-[#201c3b]", border: "border-[#d7aefb] dark:border-[#6040a8]" },
+  { name: "Dusk",    bg: "bg-[#e8d5f5] dark:bg-[#2c1c3b]", border: "border-[#b39ddb] dark:border-[#7040a0]" },
+  { name: "Blossom", bg: "bg-[#fce4ec] dark:bg-[#3b1c28]", border: "border-[#f48fb1] dark:border-[#a84060]" },
+  { name: "Clay",    bg: "bg-[#efebe9] dark:bg-[#2a2523]", border: "border-[#d7ccc8] dark:border-[#7a7068]" },
+  { name: "Chalk",   bg: "bg-[#e8eaed] dark:bg-[#252729]", border: "border-[#dadce0] dark:border-[#606468]" },
 ] as const;
 
 /**
