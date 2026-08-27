@@ -20,11 +20,12 @@ const ContextMenu = React.lazy(() =>
 const FolderModal = React.lazy(() =>
   import("./folder-modal").then((m) => ({ default: m.FolderModal })),
 );
-const NewFolderModal = React.lazy(() =>
-  import("./new-folder-modal").then((m) => ({ default: m.NewFolderModal })),
-);
+
 const NewCardModal = React.lazy(() =>
   import("./new-card-modal").then((m) => ({ default: m.NewCardModal })),
+);
+const NewFolderModal = React.lazy(() =>
+  import("./new-folder-modal").then((m) => ({ default: m.NewFolderModal })),
 );
 const EditCardModal = React.lazy(() =>
   import("./edit-card-modal").then((m) => ({ default: m.EditCardModal })),
@@ -93,7 +94,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [sortBy, setSortBy] = useState<"date" | "alpha" | "color">("date");
+
   const [category, setCategory] = useState<string | null>(null);
   const [status, setStatus] = useState<CardStatus>("active");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -241,6 +242,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   const [newCard, setNewCard] = useState<{ category?: string } | null>(null);
   const [expandedCardId, setExpandedCardId] = useState<number | null>(null);
   const [folderModal, setFolderModal] = useState<string | null>(null);
+  const [newFolderModal, setNewFolderModal] = useState(false);
 
   // Handle external expand request (e.g. from chat panel card reference)
   useEffect(() => {
@@ -249,7 +251,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
       onExpandHandled?.();
     }
   }, [expandCardId, onExpandHandled]);
-  const [newFolderModal, setNewFolderModal] = useState(false);
+
 
   const openMenu = (e: React.MouseEvent, items: ContextMenuItem[]) => {
     e.preventDefault();
@@ -273,25 +275,16 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   });
   const [categories] = api.cards.categories.useSuspenseQuery();
 
-  // Sort cards client-side (pinned always first)
+  // Cards sorted by pinned first, then by date
   const cards = React.useMemo(() => {
     const sorted = [...rawCards];
     sorted.sort((a, b) => {
-      // Pinned cards always first
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
-      switch (sortBy) {
-        case "alpha":
-          return a.title.localeCompare(b.title);
-        case "color":
-          return (a.color ?? "zzz").localeCompare(b.color ?? "zzz");
-        case "date":
-        default:
-          return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
-      }
+      return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
     });
     return sorted;
-  }, [rawCards, sortBy]);
+  }, [rawCards]);
 
   const bulkAction = api.cards.bulkAction.useMutation({
     onSuccess: async (_data, variables) => {
@@ -448,8 +441,8 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           )}
         </div>
 
-        {/* Status tabs + folder filter row */}
-        <div className="mt-3 flex items-center gap-1">
+        {/* Google Keep-style pill tabs */}
+        <div className="mt-3 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.value}
@@ -458,55 +451,59 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                 setStatus(tab.value);
                 setSelected(new Set());
               }}
-              className={`rounded-full px-3 py-1 text-xs transition ${
+              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
                 status === tab.value
-                  ? "bg-neutral-200 font-semibold text-neutral-900 dark:bg-white/20 dark:text-white"
-                  : "text-neutral-500 hover:text-neutral-800 dark:text-white/50 dark:hover:text-white/80"
+                  ? "bg-violet-500 text-white shadow-sm"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20"
               }`}
             >
               {tab.label}
             </button>
           ))}
 
-          <span className="mx-1 h-4 w-px bg-neutral-200 dark:bg-white/10" />
+          <span className="mx-0.5 h-4 w-px shrink-0 bg-neutral-200 dark:bg-white/10" />
 
-          {/* Folder filter */}
-          <select
-            value={category ?? ""}
-            onChange={(e) => setCategory(e.target.value || null)}
-            aria-label="Filter by folder"
-            className="rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs text-neutral-700 outline-none dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white/80 dark:[color-scheme:dark]"
-          >
-            <option value="">All folders</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
+          {/* Folder pills */}
           <button
             type="button"
-            onClick={() => setNewFolderModal(true)}
-            className="rounded-full px-2 py-1 text-xs font-medium text-neutral-500 underline-offset-2 transition hover:text-neutral-800 hover:underline dark:text-white/50 dark:hover:text-white"
+            onClick={() => setCategory(null)}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+              category === null
+                ? "bg-violet-500 text-white shadow-sm"
+                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20"
+            }`}
           >
-            + Folder
+            All
           </button>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setCategory(cat)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                category === cat
+                  ? "bg-violet-500 text-white shadow-sm"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
 
-          <span className="mx-1 h-4 w-px bg-neutral-200 dark:bg-white/10" />
+          <span className="mx-0.5 h-4 w-px shrink-0 bg-neutral-200 dark:bg-white/10" />
 
-          {/* Sort */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            aria-label="Sort cards"
-            className="rounded-full border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 outline-none dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white/80 dark:[color-scheme:dark]"
+          {/* Refresh */}
+          <button
+            type="button"
+            onClick={() => invalidateAll()}
+            title="Refresh"
+            className="shrink-0 rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
           >
-            <option value="date">Newest</option>
-            <option value="alpha">A–Z</option>
-            <option value="color">Color</option>
-          </select>
-
-
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
         </div>
 
         {/* Drop a link / quick-add */}
