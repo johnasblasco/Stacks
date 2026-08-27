@@ -226,7 +226,7 @@ export function InlineCardEditor({ card, onClose }: InlineCardEditorProps) {
               </svg>
             </button>
             {showColors && (
-              <div className="absolute bottom-full left-0 z-50 mb-2 flex flex-wrap gap-1.5 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-[#252749]">
+              <div className="absolute bottom-full left-0 z-50 mb-2 max-h-48 w-40 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg [scrollbar-width:none] [-ms-overflow-style:none] dark:border-white/10 dark:bg-[#252749] [&::-webkit-scrollbar]:hidden">
                 {NOTE_COLORS.map((c) => (
                   <button
                     key={c.name}

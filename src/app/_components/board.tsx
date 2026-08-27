@@ -212,13 +212,16 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
       } else if (swipeX > 100) {
         try { navigator.vibrate?.(20); } catch { /* no-op */ }
         swipeAction.mutate({ ids: [swipeCardId], action: "archive" });
-        showNotice("Archived");
+        showUndoNotice("Archived", {
+          ids: [swipeCardId],
+          action: "activate",
+        });
       }
     }
     touchStartRef.current = null;
     setSwipeCardId(null);
     setSwipeX(0);
-  }, [swipeCardId, swipeX, swipeAction, showUndoNotice, showNotice]);
+  }, [swipeCardId, swipeX, swipeAction, showUndoNotice]);
 
   // Drag-and-drop reorder
   const [dragId, setDragId] = useState<number | null>(null);
@@ -278,13 +281,17 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           `Moved to Trash (${variables.ids.length} card${variables.ids.length === 1 ? "" : "s"})`,
           { ids: variables.ids, action: "activate" },
         );
+      } else if (variables.action === "archive") {
+        showUndoNotice(
+          `Archived (${variables.ids.length} card${variables.ids.length === 1 ? "" : "s"})`,
+          { ids: variables.ids, action: "activate" },
+        );
       } else {
         const labels: Record<string, string> = {
-          archive: "Archived",
           activate: "Restored",
           move: `Moved to ${variables.category}`,
         };
-        showNotice(`${labels[variables.action]} (${variables.ids.length} card${variables.ids.length === 1 ? "" : "s"})`);
+        showNotice(`${labels[variables.action] ?? variables.action} (${variables.ids.length} card${variables.ids.length === 1 ? "" : "s"})`);
       }      },
   });
 
