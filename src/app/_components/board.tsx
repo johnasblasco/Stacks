@@ -772,7 +772,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                       },
                     ])
                   }
-                  className={`flex w-full flex-col items-start gap-3 rounded-xl border p-6 pr-10 text-left shadow-sm transition hover:border-neutral-300 hover:bg-neutral-100 dark:hover:border-white/30 dark:hover:bg-white/10 ${
+                  className={`flex w-full flex-col items-start gap-3 overflow-hidden rounded-xl border p-6 pr-10 text-left shadow-sm transition hover:border-neutral-300 hover:bg-neutral-100 dark:hover:border-white/30 dark:hover:bg-white/10 ${
                     isSelected
                       ? "border-violet-400 bg-violet-500/20"
                       : highlighted
@@ -801,7 +801,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                   >
                     {card.category}
                   </span>
-                  <h3 className="font-semibold text-neutral-900 dark:text-white">
+                  <h3 className="line-clamp-2 font-semibold text-neutral-900 dark:text-white">
                     <HighlightText text={card.title} query={debouncedQuery} />
                   </h3>
                   {card.note && (
