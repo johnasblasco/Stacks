@@ -49,12 +49,15 @@ export function ChatPanel({
       ]);
       if (result.kind === "answered") onAnswered(result.usedCardIds);
     },
-    onError: () => {
+    onError: (error) => {
+      const msg = error.message?.includes("GOOGLE_GENERATIVE_AI_API_KEY")
+        ? "AI isn't configured yet. Add GOOGLE_GENERATIVE_AI_API_KEY to your .env file (free key: https://aistudio.google.com/apikey)"
+        : error.message || "Something went wrong. Check your AI config and try again.";
       setMessages((prev) => [
         ...prev,
         {
           role: "stacks",
-          text: "Something went wrong. Try again.",
+          text: msg,
           kind: "rejected",
         },
       ]);
@@ -93,8 +96,8 @@ export function ChatPanel({
               Ask Stacks
             </h2>
             <p className="text-xs text-neutral-500 dark:text-white/40">
-              Asks questions about your saved cards. To file something new, use
-              the bar above the board.
+              Ask anything — I can use your saved cards or answer from general
+              knowledge. To file something new, use the bar above the board.
             </p>
           </div>
           {onClose && (
@@ -112,11 +115,30 @@ export function ChatPanel({
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.length === 0 && (
-          <p className="mt-8 text-center text-sm text-neutral-400 dark:text-white/40">
-            Ask what you&apos;ve saved — &quot;what was that article about
-            tags?&quot;. Nothing said here gets filed; drop links and notes into
-            the board&apos;s quick-add bar instead.
-          </p>
+          <div className="mt-8 space-y-2 text-center">
+            <p className="text-sm text-neutral-500 dark:text-white/50">
+              Ask me anything — I can reference your saved cards or answer from
+              general knowledge.
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {[
+                "Summarize what I've saved about React",
+                "What's the difference between REST and GraphQL?",
+                "Help me write a regex for emails",
+              ].map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => {
+                    setText(suggestion);
+                  }}
+                  className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs text-neutral-600 transition hover:border-violet-300 hover:text-violet-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:border-violet-400 dark:hover:text-violet-300"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         {messages.map((message, i) => (
           <div
@@ -169,7 +191,7 @@ export function ChatPanel({
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Ask what you've saved…"
+            placeholder="Ask me anything…"
             className="w-full rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/40 dark:focus:border-white/30"
           />
           <button

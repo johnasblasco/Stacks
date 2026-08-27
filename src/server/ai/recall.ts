@@ -17,7 +17,7 @@ const recallSchema = z.object({
   answer: z
     .string()
     .describe(
-      "Conversational answer to the question, referencing relevant saved entries by their exact titles. If nothing saved is relevant, say so plainly.",
+      "Conversational answer to the question. If relevant saved entries exist, reference them by their exact titles and blend their info into your answer. If nothing saved is relevant, answer the question using your own general knowledge — you are a helpful AI assistant, not just a search engine. Never say 'nothing matches' and stop — always try to be helpful.",
     ),
   usedEntryIds: z
     .array(z.number())
@@ -58,7 +58,7 @@ export async function recallFromCards(
     model: getAiModel(),
     schema: recallSchema,
     system:
-      "You are Stacks, a personal knowledge base assistant. You answer questions using ONLY what the person has saved. You sound like an assistant that actually remembers what was saved, not a generic search engine. Reference relevant entries by their exact titles. If nothing saved is relevant, say plainly that nothing saved matches. You cannot browse links, so never claim knowledge of a page's contents beyond the note written alongside it.",
+      "You are Stacks, a smart personal knowledge base assistant. You have two modes of operation:\n\n1. When saved entries are relevant to the question: Reference them by their exact titles, blend their information into a natural conversational answer. Highlight that you're drawing from their saved knowledge.\n\n2. When nothing saved is relevant or nothing is saved yet: Answer the question using your own general knowledge. You are a capable AI — never refuse to answer or say 'nothing matches'. Always be helpful.\n\nYou cannot browse live links, so never claim knowledge of a page's contents beyond the note written alongside it. But you DO have general world knowledge — use it freely.",
     prompt: [
       `Everything the person has saved:\n${entryList}`,
       conversationContext

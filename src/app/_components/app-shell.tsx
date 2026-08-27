@@ -6,20 +6,17 @@ import React, { Suspense, useState } from "react";
 import { Board } from "./board";
 import { ThemeToggle } from "./theme-toggle";
 
-const CardDetail = React.lazy(() =>
-  import("./card-detail").then((m) => ({ default: m.CardDetail })),
-);
 const ChatPanel = React.lazy(() =>
   import("./chat-panel").then((m) => ({ default: m.ChatPanel })),
 );
 
 export function AppShell() {
-  const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
   const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
   const [chatOpen, setChatOpen] = useState(false);
+  const [expandCardId, setExpandCardId] = useState<number | null>(null);
 
   const openCard = (id: number) => {
-    setSelectedCardId(id);
+    setExpandCardId(id);
     setChatOpen(false);
   };
 
@@ -63,6 +60,8 @@ export function AppShell() {
       <Board
         highlightedIds={highlightedIds}
         onSelectCard={openCard}
+        expandCardId={expandCardId}
+        onExpandHandled={() => setExpandCardId(null)}
       />
 
       {/* Chat panel — slide-in drawer below desktop */}
@@ -85,16 +84,7 @@ export function AppShell() {
         </>
       )}
 
-      {/* Detail view */}
-      {selectedCardId !== null && (
-        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
-          <CardDetail
-            cardId={selectedCardId}
-            onClose={() => setSelectedCardId(null)}
-            onSelectCard={openCard}
-          />
-        </Suspense>
-      )}
+
     </div>
   );
 }

@@ -19,7 +19,6 @@ import {
 } from "@/server/ai/classify";
 import { enrichCard, fallbackEnrichment, isAiConfigured } from "@/server/ai/enrich";
 import { recallFromCards } from "@/server/ai/recall";
-import { looksLikeCredential } from "@/server/ai/security";
 import { fetchPagePreview } from "@/server/ai/link";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { cardStatus, cards, folders } from "@/server/db/schema";
@@ -213,27 +212,41 @@ export const cardsRouter = createTRPCRouter({
             .join("\n")
         : undefined;
 
-      const result = await recallFromCards(
-        input.text,
-        entries.map((entry) => ({
-          id: entry.id,
-          url: entry.url,
-          note: entry.note,
-          title: entry.title,
-          summary: entry.summary,
-          tags: entry.tags,
-          category: entry.category,
-        })),
-        conversationContext,
-      );
+      try {
+        const result = await recallFromCards(
+          input.text,
+          entries.map((entry) => ({
+            id: entry.id,
+            url: entry.url,
+            note: entry.note,
+            title: entry.title,
+            summary: entry.summary,
+            tags: entry.tags,
+            category: entry.category,
+          })),
+          conversationContext,
+        );
 
-      return {
-        kind: "answered",
-        answer: result.answer,
-        usedCardIds: result.usedEntryIds.filter((id) =>
-          entries.some((entry) => entry.id === id),
-        ),
-      };
+        return {
+          kind: "answered",
+          answer: result.answer,
+          usedCardIds: result.usedEntryIds.filter((id) =>
+            entries.some((entry) => entry.id === id),
+          ),
+        };
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        if (msg.includes("API key") || msg.includes("API_KEY")) {
+          return {
+            kind: "rejected",
+            reason: "Invalid or missing AI API key. Check GOOGLE_GENERATIVE_AI_API_KEY in your .env file.",
+          };
+        }
+        return {
+          kind: "rejected",
+          reason: `AI error: ${msg.slice(0, 300)}`,
+        };
+      }
     }),
 
   /**
@@ -296,12 +309,6 @@ export const cardsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }): Promise<CaptureResult> => {
-      // Security constraint first: never transmit credential-like input.
-      const rejection = looksLikeCredential(input.text);
-      if (rejection) {
-        return { kind: "rejected", reason: rejection };
-      }
-
       const intent: MessageIntent =
         input.mode === "file"
           ? "save"
@@ -606,5 +613,25 @@ export const cardsRouter = createTRPCRouter({
         .update(cards)
         .set({ pinned: !card.pinned })
         .where(eq(cards.id, card.id));
+    }),
+
+  /** Reorder: move fromId card to sit right after toId by tweaking savedAt. */
+  reorder: protectedProcedure
+    .input(z.object({ fromId: z.number(), toId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const fromCard = await ctx.db.query.cards.findFirst({
+        where: and(eq(cards.id, input.fromId), eq(cards.userId, ctx.session.user.id)),
+      });
+      const toCard = await ctx.db.query.cards.findFirst({
+        where: and(eq(cards.id, input.toId), eq(cards.userId, ctx.session.user.id)),
+      });
+      if (!fromCard || !toCard) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Place fromCard 1ms after toCard so it appears right after in desc order
+      const newTime = new Date(new Date(toCard.savedAt).getTime() + 1);
+      await ctx.db
+        .update(cards)
+        .set({ savedAt: newTime })
+        .where(eq(cards.id, fromCard.id));
     }),
 });

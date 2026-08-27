@@ -11,6 +11,7 @@ import { api } from "@/trpc/react";
 import { CaptureInput } from "./capture-input";
 import type { CaptureResult } from "./capture-input";
 import type { ContextMenuItem } from "./context-menu";
+import { InlineCardEditor } from "./inline-card-editor";
 
 const ContextMenu = React.lazy(() =>
   import("./context-menu").then((m) => ({ default: m.ContextMenu })),
@@ -60,12 +61,16 @@ const COLOR_MAP: Record<string, { bg: string; border: string }> = {
 interface BoardProps {
   highlightedIds: number[];
   onSelectCard: (id: number) => void;
+  expandCardId?: number | null;
+  onExpandHandled?: () => void;
 }
 
-export function Board({ highlightedIds, onSelectCard }: BoardProps) {
+export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHandled }: BoardProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [category, setCategory] = useState<string | null>(null);
   const [status, setStatus] = useState<CardStatus>("active");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -91,13 +96,32 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
     debounceRef.current = setTimeout(() => {
       setDebouncedQuery(value);
     }, 250);
-  }, []);
-
-  useEffect(() => {
+  }, []);  useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
+
+  // Cmd/Ctrl+K to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Drag-and-drop reorder
+  const [dragId, setDragId] = useState<number | null>(null);
+  const reorderCard = api.cards.reorder.useMutation({
+    onSuccess: async () => {
+      await invalidateAll();
+    },
+  });
 
   // Right-click menu / manual creation / folder containers
   const [menu, setMenu] = useState<{
@@ -106,8 +130,16 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
     items: ContextMenuItem[];
   } | null>(null);
   const [newCard, setNewCard] = useState<{ category?: string } | null>(null);
-  const [editingCard, setEditingCard] = useState<Card | null>(null);
+  const [expandedCardId, setExpandedCardId] = useState<number | null>(null);
   const [folderModal, setFolderModal] = useState<string | null>(null);
+
+  // Handle external expand request (e.g. from chat panel card reference)
+  useEffect(() => {
+    if (expandCardId != null) {
+      setExpandedCardId(expandCardId);
+      onExpandHandled?.();
+    }
+  }, [expandCardId, onExpandHandled]);
   const [newFolderModal, setNewFolderModal] = useState(false);
 
   const openMenu = (e: React.MouseEvent, items: ContextMenuItem[]) => {
@@ -204,10 +236,11 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
             />
           </svg>
           <input
+            ref={searchRef}
             type="text"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
-            placeholder="Search everything…"
+            placeholder="Search everything…  ⌘K"
             className="w-full rounded-full border border-neutral-300 bg-white py-2 pl-10 pr-4 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/40 dark:focus:border-violet-400 dark:focus:ring-violet-400/20"
           />
           {query && (
@@ -263,6 +296,28 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
             className="rounded-full px-2 py-1 text-xs font-medium text-neutral-500 underline-offset-2 transition hover:text-neutral-800 hover:underline dark:text-white/50 dark:hover:text-white"
           >
             + Folder
+          </button>
+
+          <span className="mx-1 h-4 w-px bg-neutral-200 dark:bg-white/10" />
+
+          {/* View toggle */}
+          <button
+            type="button"
+            onClick={() => setViewMode((v) => (v === "grid" ? "list" : "grid"))}
+            title={viewMode === "grid" ? "Switch to list view" : "Switch to grid view"}
+            className="rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+          >
+            {viewMode === "grid" ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+              </svg>
+            )}
           </button>
         </div>
 
@@ -369,9 +424,13 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
         </div>
       )}
 
-      {/* Card grid — right-click empty space for new note/folder */}
+      {/* Card grid / list — right-click empty space for new note/folder */}
       <div
-        className="grid flex-1 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-3"
+        className={
+          viewMode === "grid"
+            ? "grid flex-1 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-3"
+            : "flex flex-1 flex-col gap-2 p-4 sm:p-6"
+        }
         onContextMenu={(e) =>
           openMenu(e, [
             {
@@ -398,7 +457,20 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
           const colorDef = card.color ? COLOR_MAP[card.color] : null;
           const isPinned = card.pinned;
           return (
-            <div key={card.id} className="relative">
+            <div
+              key={card.id}
+              className={viewMode === "grid" ? "relative" : "relative flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"}
+              draggable
+              onDragStart={() => setDragId(card.id)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                if (dragId && dragId !== card.id) {
+                  reorderCard.mutate({ fromId: dragId, toId: card.id });
+                }
+                setDragId(null);
+              }}
+              onDragEnd={() => setDragId(null)}
+            >
               {/* Multi-select checkbox */}
               <button
                 type="button"
@@ -418,85 +490,88 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
                   📌
                 </span>
               )}
-              <button
-                type="button"
-                onClick={() => onSelectCard(card.id)}
-                onContextMenu={(e) =>
-                  openMenu(e, [
-                    {
-                      label: "Open",
-                      onSelect: () => onSelectCard(card.id),
-                    },
-                    {
-                      label: "Edit",
-                      onSelect: () => setEditingCard(card),
-                    },
-                    {
-                      label: isPinned ? "Unpin" : "Pin to top",
-                      onSelect: () => togglePin.mutate({ id: card.id }),
-                    },
-                    {
-                      label: `Open folder “${card.category}”`,
-                      onSelect: () => setFolderModal(card.category),
-                    },
-                    {
-                      label: "Move to folder…",
-                      onSelect: () => {
-                        const to = prompt(`Move “${card.title}” to folder:`);
-                        if (to?.trim())
-                          bulkAction.mutate({
-                            ids: [card.id],
-                            action: "move",
-                            category: to.trim(),
-                          });
+              {expandedCardId === card.id ? (
+                <InlineCardEditor
+                  card={card}
+                  onClose={() => setExpandedCardId(null)}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setExpandedCardId(card.id)}
+                  onContextMenu={(e) =>
+                    openMenu(e, [
+                      {
+                        label: "Open",
+                        onSelect: () => setExpandedCardId(card.id),
                       },
-                    },
-                    {
-                      label: "Move to trash",
-                      onSelect: () =>
-                        bulkAction.mutate({ ids: [card.id], action: "trash" }),
-                    },
-                  ])
-                }
-                className={`flex w-full flex-col items-start gap-2 rounded-xl border p-4 pr-10 text-left shadow-sm transition hover:border-neutral-300 hover:bg-neutral-100 dark:hover:border-white/30 dark:hover:bg-white/10 ${
-                  isSelected
-                    ? "border-violet-400 bg-violet-500/20"
-                    : highlighted
-                      ? "border-violet-400 bg-violet-500/10 ring-2 ring-violet-400/60"
-                      : colorDef
-                        ? `${colorDef.bg} ${colorDef.border} border-2`
-                        : "border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5"
-                }`}
-              >
-                {/* Folder label — click to open the folder container */}
-                <span
-                  role="button"
-                  tabIndex={0}
-                  title={`Open folder “${card.category}”`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setFolderModal(card.category);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
+                      {
+                        label: isPinned ? "Unpin" : "Pin to top",
+                        onSelect: () => togglePin.mutate({ id: card.id }),
+                      },
+                      {
+                        label: `Open folder “${card.category}”`,
+                        onSelect: () => setFolderModal(card.category),
+                      },
+                      {
+                        label: "Move to folder…",
+                        onSelect: () => {
+                          const to = prompt(`Move “${card.title}” to folder:`);
+                          if (to?.trim())
+                            bulkAction.mutate({
+                              ids: [card.id],
+                              action: "move",
+                              category: to.trim(),
+                            });
+                        },
+                      },
+                      {
+                        label: "Move to trash",
+                        onSelect: () =>
+                          bulkAction.mutate({ ids: [card.id], action: "trash" }),
+                      },
+                    ])
+                  }
+                  className={`flex w-full flex-col items-start gap-2 rounded-xl border p-4 pr-10 text-left shadow-sm transition hover:border-neutral-300 hover:bg-neutral-100 dark:hover:border-white/30 dark:hover:bg-white/10 ${
+                    isSelected
+                      ? "border-violet-400 bg-violet-500/20"
+                      : highlighted
+                        ? "border-violet-400 bg-violet-500/10 ring-2 ring-violet-400/60"
+                        : colorDef
+                          ? `${colorDef.bg} ${colorDef.border} border-2`
+                          : "border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5"
+                  }`}
+                >
+                  {/* Folder label — click to open the folder container */}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    title={`Open folder “${card.category}”`}
+                    onClick={(e) => {
                       e.stopPropagation();
                       setFolderModal(card.category);
-                    }
-                  }}
-                  className="text-xs uppercase tracking-wide text-violet-600 underline-offset-2 hover:underline dark:text-violet-300"
-                >
-                  {card.category}
-                </span>
-                <h3 className="font-semibold text-neutral-900 dark:text-white">
-                  {card.title}
-                </h3>
-                <div className="mt-auto flex w-full items-center justify-end gap-2 pt-1">
-                  <span className="text-[11px] text-neutral-400 dark:text-white/40">
-                    {formatDate(card.savedAt)}
-                    {card.url ? " · 🔗" : ""}
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.stopPropagation();
+                        setFolderModal(card.category);
+                      }
+                    }}
+                    className="text-xs uppercase tracking-wide text-violet-600 underline-offset-2 hover:underline dark:text-violet-300"
+                  >
+                    {card.category}
                   </span>
-                </div>
-              </button>
+                  <h3 className="font-semibold text-neutral-900 dark:text-white">
+                    {card.title}
+                  </h3>
+                  <div className="mt-auto flex w-full items-center justify-end gap-2 pt-1">
+                    <span className="text-[11px] text-neutral-400 dark:text-white/40">
+                      {formatDate(card.savedAt)}
+                      {card.url ? " · 🔗" : ""}
+                    </span>
+                  </div>
+                </button>
+              )}
             </div>
           );
         })}
@@ -543,15 +618,7 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
         </Suspense>
       )}
 
-      {/* Edit card modal */}
-      {editingCard && (
-        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
-          <EditCardModal
-            card={editingCard}
-            existingCategories={categories}
-            onClose={() => setEditingCard(null)} />
-        </Suspense>
-      )}
+
     </section>
   );
 }

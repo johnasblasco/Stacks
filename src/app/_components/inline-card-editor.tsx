@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/trpc/react";
-import type { inferRouterOutputs } from "@trpc/server";
-
-import type { AppRouter } from "@/server/api/root";
-
-export type CaptureResult = inferRouterOutputs<AppRouter>["cards"]["capture"];
+import type { Card } from "./board";
 
 /** Google Keep color palette. */
 const NOTE_COLORS = [
@@ -25,87 +21,68 @@ const NOTE_COLORS = [
   { name: "Chalk", bg: "bg-[#e8eaed]", border: "border-[#dadce0]" },
 ] as const;
 
-export interface CaptureInputProps {
-  onResult?: (result: CaptureResult, submittedText: string) => void;
-  categories?: string[];
+interface InlineCardEditorProps {
+  card: Card;
+  onClose: () => void;
 }
 
 /**
- * Google Keep-style quick-add: a collapsed bar that expands into a card
- * with title, note body, folder picker, color picker, and a toolbar.
+ * Google Keep-style inline editor: replaces the card preview with editable
+ * title, note body, folder, and a toolbar — all in place, no modal.
  */
-export function CaptureInput({ onResult, categories = [] }: CaptureInputProps) {
-  const [expanded, setExpanded] = useState(false);
-  const [title, setTitle] = useState("");
-  const [note, setNote] = useState("");
-  const [category, setCategory] = useState("");
-  const [color, setColor] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function InlineCardEditor({ card, onClose }: InlineCardEditorProps) {
+  const [title, setTitle] = useState(card.title);
+  const [note, setNote] = useState(card.note);
+  const [category, setCategory] = useState(card.category);
+  const [color, setColor] = useState<string | null>(card.color);
   const [showColors, setShowColors] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const cardRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const colorPanelRef = useRef<HTMLDivElement>(null);
 
   const utils = api.useUtils();
-  const capture = api.cards.capture.useMutation({
-    onSuccess: async (result) => {
-      await utils.cards.list.invalidate();
-      await utils.cards.categories.invalidate();
-      onResult?.(result, title || note);
-      collapse();
+  const update = api.cards.update.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.cards.list.invalidate(),
+        utils.cards.categories.invalidate(),
+      ]);
+      onClose();
     },
     onError: () => {
       setSaving(false);
-      setError("Something went wrong. Try again.");
     },
   });
 
-  const collapse = useCallback(() => {
-    setExpanded(false);
-    setTitle("");
-    setNote("");
-    setCategory("");
-    setColor(null);
-    setError(null);
-    setSaving(false);
-    setShowColors(false);
-  }, []);
-
-  // Auto-resize body textarea
-  const autoResize = useCallback(() => {
-    const el = bodyRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, []);
-
+  // Auto-focus title
   useEffect(() => {
-    autoResize();
-  }, [note, autoResize]);
-
-  // Focus title when expanding
-  useEffect(() => {
-    if (expanded) {
-      const timer = setTimeout(() => titleRef.current?.focus(), 50);
-      return () => clearTimeout(timer);
-    }
-  }, [expanded]);
+    const timer = setTimeout(() => titleRef.current?.focus(), 50);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Close on click outside
   useEffect(() => {
-    if (!expanded) return;
     const handleClick = (e: MouseEvent) => {
-      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
-        if (title.trim() || note.trim()) return;
-        collapse();
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        saveAndClose();
       }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [expanded, title, note, collapse]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, note, category, color]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
 
   // Close color panel on outside click
   useEffect(() => {
@@ -119,34 +96,53 @@ export function CaptureInput({ onResult, categories = [] }: CaptureInputProps) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showColors]);
 
-  const submit = () => {
+  // Auto-resize textarea
+  const autoResize = useCallback(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [note, autoResize]);
+
+  const saveAndClose = () => {
     const trimmedTitle = title.trim();
     const trimmedNote = note.trim();
-    const text = [trimmedTitle, trimmedNote].filter(Boolean).join("\n");
-
-    if (!text) {
-      setError("Write something before saving.");
+    if (!trimmedTitle && !trimmedNote) {
+      onClose();
       return;
     }
-
+    // Only save if something actually changed
+    if (
+      trimmedTitle === card.title &&
+      trimmedNote === card.note &&
+      (category.trim() || card.category) === card.category &&
+      color === card.color
+    ) {
+      onClose();
+      return;
+    }
     setSaving(true);
-    setError(null);
-    capture.mutate({
-      text,
-      mode: "file",
-      category: category.trim() || undefined,
-      color: color || undefined,
+    update.mutate({
+      id: card.id,
+      title: trimmedTitle || card.title,
+      note: trimmedNote || card.note,
+      summary: trimmedNote ? trimmedNote.slice(0, 200) : card.summary,
+      category: category.trim() || card.category,
+      color: color || null,
     });
   };
 
-  const handleBodyKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();
-      submit();
+      saveAndClose();
     }
   };
 
-  // Resolve color classes for the card border/bg
   const selectedColor = NOTE_COLORS.find((c) => c.name === color);
   const cardBg = color && color !== "Default" ? selectedColor?.bg ?? "" : "";
   const cardBorder =
@@ -154,34 +150,38 @@ export function CaptureInput({ onResult, categories = [] }: CaptureInputProps) {
       ? `border-2 ${selectedColor?.border ?? ""}`
       : "border-neutral-200 dark:border-white/10";
 
-  // Collapsed state: the bar
-  if (!expanded) {
-    return (
-      <button
-        type="button"
-        onClick={() => setExpanded(true)}
-        className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-left text-sm text-neutral-400 shadow-sm transition hover:border-neutral-300 hover:shadow-md dark:border-white/10 dark:bg-white/5 dark:text-white/40 dark:hover:border-white/20"
-      >
-        Drop a link, a note, a half-formed idea…
-      </button>
-    );
-  }
-
-  // Expanded state: Google Keep-style card
   return (
     <div
-      ref={cardRef}
-      className={`w-full rounded-xl border ${cardBorder} bg-white shadow-lg transition-all dark:bg-[#1d1f3a] ${cardBg}`}
+      ref={containerRef}
+      className={`w-full overflow-visible rounded-xl border ${cardBorder} bg-white shadow-lg transition-all dark:bg-[#1d1f3a] ${cardBg}`}
     >
       <div className="flex flex-col gap-0 p-4 pb-1">
+        {/* Folder label */}
+        <div className="mb-1 flex items-center gap-2">
+          <input
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="Folder"
+            list={`inline-folders-${card.id}`}
+            className="rounded-md border border-neutral-200 bg-transparent px-2 py-0.5 text-xs text-violet-600 outline-none focus:border-violet-400 dark:border-white/10 dark:text-violet-300 dark:focus:border-violet-400"
+          />
+          <datalist id={`inline-folders-${card.id}`}>
+            {/* Categories will be passed as prop or fetched */}
+          </datalist>
+        </div>
+
+        {/* Title */}
         <input
           ref={titleRef}
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Title"
           className="w-full border-none bg-transparent text-base font-medium text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-white dark:placeholder:text-white/40"
         />
+
+        {/* Note body */}
         <textarea
           ref={bodyRef}
           value={note}
@@ -189,21 +189,13 @@ export function CaptureInput({ onResult, categories = [] }: CaptureInputProps) {
             setNote(e.target.value);
             autoResize();
           }}
-          onKeyDown={handleBodyKeyDown}
+          onKeyDown={handleKeyDown}
           placeholder="Take a note…"
-          rows={1}
+          rows={2}
           className="w-full resize-none border-none bg-transparent text-sm leading-relaxed text-neutral-700 outline-none placeholder:text-neutral-400 dark:text-white/80 dark:placeholder:text-white/30"
-          style={{ minHeight: "32px", maxHeight: "30vh", overflow: "auto" }}
+          style={{ minHeight: "48px", maxHeight: "40vh", overflow: "auto" }}
         />
       </div>
-
-      {error && (
-        <div className="px-4 pb-1">
-          <p className="rounded-lg bg-red-500/15 px-3 py-1.5 text-xs text-red-700 dark:text-red-200">
-            {error}
-          </p>
-        </div>
-      )}
 
       {/* Toolbar */}
       <div className="flex items-center justify-between border-t border-neutral-100 px-3 py-1.5 dark:border-white/5">
@@ -253,34 +245,20 @@ export function CaptureInput({ onResult, categories = [] }: CaptureInputProps) {
               </div>
             )}
           </div>
-
-          {/* Folder picker */}
-          <input
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="Folder"
-            list="capture-folders"
-            className="w-24 rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-xs text-neutral-600 outline-none placeholder:text-neutral-400 focus:border-neutral-400 dark:border-white/10 dark:text-white/70 dark:placeholder:text-white/30 dark:focus:border-white/30 sm:w-32"
-          />
-          <datalist id="capture-folders">
-            {categories.map((cat) => (
-              <option key={cat} value={cat} />
-            ))}
-          </datalist>
         </div>
 
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={collapse}
+            onClick={onClose}
             className="rounded-full px-3 py-1 text-sm text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
           >
             Close
           </button>
           <button
             type="button"
-            onClick={submit}
-            disabled={saving || (!title.trim() && !note.trim())}
+            onClick={saveAndClose}
+            disabled={saving}
             className="rounded-full bg-violet-500 px-4 py-1 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-600 active:bg-violet-700 disabled:opacity-50"
           >
             {saving ? "…" : "Save"}
