@@ -27,9 +27,6 @@ const NewCardModal = React.lazy(() =>
 const NewFolderModal = React.lazy(() =>
   import("./new-folder-modal").then((m) => ({ default: m.NewFolderModal })),
 );
-const EditCardModal = React.lazy(() =>
-  import("./edit-card-modal").then((m) => ({ default: m.EditCardModal })),
-);
 
 export type Card = inferRouterOutputs<AppRouter>["cards"]["list"][number];
 
@@ -364,13 +361,6 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     },
   });
 
-  const createFolder = api.cards.createFolder.useMutation({
-    onSuccess: async (_data, variables) => {
-      await utils.cards.categories.invalidate();
-      showNotice(`Folder “${variables.name}” created`);
-    },
-  });
-
   const [showBulkColor, setShowBulkColor] = useState(false);
   const bulkSetColor = api.cards.bulkSetColor.useMutation({
     onSuccess: async () => {
@@ -390,13 +380,6 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     if (result.kind === "saved") showNotice(result.message);
     else if (result.kind === "duplicate") showNotice(result.message);
     else if (result.kind === "rejected") showNotice(result.reason);
-  };
-
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await invalidateAll();
-    setIsRefreshing(false);
   };
 
   const toggleSelect = (id: number) => {

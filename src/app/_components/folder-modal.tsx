@@ -51,13 +51,6 @@ export function FolderModal({
 
   const [showRenameModal, setShowRenameModal] = useState(false);
 
-  const renameCategory = api.cards.renameCategory.useMutation({
-    onSuccess: async () => {
-      await invalidate();
-      onClose();
-    },
-  });
-
   const submit = () => {
     const trimmedTitle = title.trim();
     if (!trimmedTitle || addItem.isPending) return;

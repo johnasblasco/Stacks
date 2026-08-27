@@ -140,7 +140,7 @@ export const CaptureInput = forwardRef<HTMLInputElement, CaptureInputProps>(
         text,
         mode: "file",
         category: category.trim() || undefined,
-        color: color || undefined,
+        color: color ?? undefined,
       });
     };
 

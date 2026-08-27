@@ -147,7 +147,7 @@ export function NewCardModal({
       note: trimmedNote,
       url: parsedUrl,
       category: trimmedCategory,
-      color: color || null,
+      color: color ?? null,
     });
   };
 

@@ -19,7 +19,7 @@ function formatTimestamp(date: Date): string {
 
 /** Extract the first URL from a block of text. */
 function extractFirstUrl(text: string): string | null {
-  const match = text.match(/https?:\/\/[^\s]+/);
+  const match = /https?:\/\/[^\s]+/.exec(text);
   return match ? match[0] : null;
 }
 
@@ -91,6 +91,12 @@ export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
     },
   });
 
+  // Preview: render note text with auto-detected clickable links
+  const notePreview = useMemo(
+    () => renderNoteWithLinks(editNote),
+    [editNote],
+  );
+
   if (!card) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -106,12 +112,6 @@ export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
     editTitle.trim() !== c.title ||
     editNote.trim() !== c.note ||
     editCategory.trim() !== c.category;
-
-  // Preview: render note text with auto-detected clickable links
-  const notePreview = useMemo(
-    () => renderNoteWithLinks(editNote),
-    [editNote],
-  );
 
   function saveEdits() {
     if (!editTitle.trim() || !editNote.trim()) return;

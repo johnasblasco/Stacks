@@ -132,7 +132,7 @@ export function InlineCardEditor({ card, onClose }: InlineCardEditorProps) {
       note: trimmedNote || card.note,
       summary: trimmedNote ? trimmedNote.slice(0, 200) : card.summary,
       category: category.trim() || card.category,
-      color: color || null,
+      color: color ?? null,
     });
   };
 

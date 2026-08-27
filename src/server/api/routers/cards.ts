@@ -417,7 +417,7 @@ export const cardsRouter = createTRPCRouter({
           title: enrichment.title,
           summary: enrichment.summary,
           tags: enrichment.tags,
-          category: input.category || enrichment.category,
+          category: input.category ?? enrichment.category,
           color: input.color ?? null,
         })
         .returning();
