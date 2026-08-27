@@ -76,12 +76,27 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [moveTarget, setMoveTarget] = useState<string>("");
   const [notice, setNotice] = useState<string | null>(null);
+  const [undoAction, setUndoAction] = useState<{ ids: number[]; action: string; category?: string } | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showNotice = useCallback((msg: string) => {
     setNotice(msg);
+    setUndoAction(null);
     if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
-    noticeTimerRef.current = setTimeout(() => setNotice(null), 3000);
+    noticeTimerRef.current = setTimeout(() => {
+      setNotice(null);
+      setUndoAction(null);
+    }, 5000);
+  }, []);
+
+  const showUndoNotice = useCallback((msg: string, undo: { ids: number[]; action: string; category?: string }) => {
+    setNotice(msg);
+    setUndoAction(undo);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = setTimeout(() => {
+      setNotice(null);
+      setUndoAction(null);
+    }, 6000);
   }, []);
 
   useEffect(() => {
@@ -114,6 +129,46 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // Swipe-to-delete state (mobile)
+  const [swipeCardId, setSwipeCardId] = useState<number | null>(null);
+  const [swipeX, setSwipeX] = useState(0);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeAction = api.cards.bulkAction.useMutation({
+    onSuccess: async () => {
+      await invalidateAll();
+    },
+  });
+
+  const handleTouchStart = useCallback((e: React.TouchEvent, cardId: number) => {
+    touchStartRef.current = { x: e.touches[0]!.clientX, y: e.touches[0]!.clientY };
+    setSwipeCardId(cardId);
+    setSwipeX(0);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const dx = e.touches[0]!.clientX - touchStartRef.current.x;
+    const dy = e.touches[0]!.clientY - touchStartRef.current.y;
+    // Only horizontal swipes (ignore vertical scrolling)
+    if (Math.abs(dx) > Math.abs(dy) && dx < 0) {
+      setSwipeX(Math.max(dx, -160));
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (swipeCardId && swipeX < -100) {
+      // Swipe far enough → trash
+      swipeAction.mutate({ ids: [swipeCardId], action: "trash" });
+      showUndoNotice("Card moved to trash", {
+        ids: [swipeCardId],
+        action: "activate",
+      });
+    }
+    touchStartRef.current = null;
+    setSwipeCardId(null);
+    setSwipeX(0);
+  }, [swipeCardId, swipeX, swipeAction, showUndoNotice]);
 
   // Drag-and-drop reorder
   const [dragId, setDragId] = useState<number | null>(null);
@@ -168,15 +223,32 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     onSuccess: async (_data, variables) => {
       await invalidateAll();
       setSelected(new Set());
-      const labels: Record<string, string> = {
-        trash: "Moved to Trash",
-        archive: "Archived",
-        activate: "Restored",
-        move: `Moved to ${variables.category}`,
-      };
-      showNotice(`${labels[variables.action]} (${variables.ids.length} card${variables.ids.length === 1 ? "" : "s"})`);
-    },
+      if (variables.action === "trash") {
+        showUndoNotice(
+          `Moved to Trash (${variables.ids.length} card${variables.ids.length === 1 ? "" : "s"})`,
+          { ids: variables.ids, action: "activate" },
+        );
+      } else {
+        const labels: Record<string, string> = {
+          archive: "Archived",
+          activate: "Restored",
+          move: `Moved to ${variables.category}`,
+        };
+        showNotice(`${labels[variables.action]} (${variables.ids.length} card${variables.ids.length === 1 ? "" : "s"})`);
+      }      },
   });
+
+  const handleUndo = useCallback(() => {
+    if (!undoAction) return;
+    bulkAction.mutate({
+      ids: undoAction.ids,
+      action: undoAction.action as "activate",
+      category: undoAction.category,
+    });
+    setNotice(null);
+    setUndoAction(null);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+  }, [undoAction, bulkAction]);
 
   const deleteForever = api.cards.deleteForever.useMutation({
     onSuccess: async () => {
@@ -327,9 +399,18 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
         </div>
 
         {notice && (
-          <p className="mt-2 truncate rounded-lg bg-violet-500/15 px-3 py-1.5 text-xs text-violet-800 dark:text-violet-200">
-            {notice}
-          </p>
+          <div className="mt-2 flex items-center gap-2 rounded-lg bg-violet-500/15 px-3 py-1.5 text-xs text-violet-800 dark:text-violet-200">
+            <span className="truncate flex-1">{notice}</span>
+            {undoAction && (
+              <button
+                type="button"
+                onClick={handleUndo}
+                className="shrink-0 font-semibold underline transition hover:text-violet-600 dark:hover:text-white"
+              >
+                Undo
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -459,7 +540,8 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           return (
             <div
               key={card.id}
-              className={viewMode === "grid" ? "relative" : "relative flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"}
+              className={`${viewMode === "grid" ? "relative" : "relative flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"} ${swipeCardId === card.id ? "" : "transition-transform"}`}
+              style={swipeCardId === card.id ? { transform: `translateX(${swipeX}px)` } : undefined}
               draggable
               onDragStart={() => setDragId(card.id)}
               onDragOver={(e) => e.preventDefault()}
@@ -470,7 +552,18 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                 setDragId(null);
               }}
               onDragEnd={() => setDragId(null)}
+              onTouchStart={(e) => handleTouchStart(e, card.id)}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
             >
+              {/* Swipe-to-delete trash icon (visible on mobile when swiping) */}
+              {swipeCardId === card.id && swipeX < -30 && (
+                <div className="absolute right-0 top-0 z-20 flex h-full w-16 items-center justify-center rounded-r-xl bg-red-500/90 text-white transition-opacity">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                </div>
+              )}
               {/* Multi-select checkbox */}
               <button
                 type="button"
@@ -564,6 +657,11 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                   <h3 className="font-semibold text-neutral-900 dark:text-white">
                     {card.title}
                   </h3>
+                  {card.note && (
+                    <p className="line-clamp-3 text-xs leading-relaxed text-neutral-500 dark:text-white/50">
+                      {card.note}
+                    </p>
+                  )}
                   <div className="mt-auto flex w-full items-center justify-end gap-2 pt-1">
                     <span className="text-[11px] text-neutral-400 dark:text-white/40">
                       {formatDate(card.savedAt)}
