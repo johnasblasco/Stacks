@@ -392,6 +392,13 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     else if (result.kind === "rejected") showNotice(result.reason);
   };
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await invalidateAll();
+    setIsRefreshing(false);
+  };
+
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -442,6 +449,19 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
               </button>
             )}
           </div>
+          
+           {/* Refresh */}
+          <button
+            type="button"
+            onClick={() => invalidateAll()}
+            title="Refresh"
+            className="shrink-0 rounded-full bg-neutral-100 p-2 text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 dark:bg-white/10 dark:text-white/50 dark:hover:bg-white/20 dark:hover:text-white"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
 
           {/* Status pill dropdown */}
           <select
@@ -450,7 +470,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
               setStatus(e.target.value as CardStatus);
               setSelected(new Set());
             }}
-            className="shrink-0 cursor-pointer appearance-none rounded-full border-0 bg-neutral-100 px-3 py-2 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
+            className="shrink-0 cursor-pointer appearance-none rounded-xl border-0 bg-neutral-100 px-3 py-2 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
           >
             {STATUS_TABS.map((tab) => (
               <option key={tab.value} value={tab.value}>
@@ -463,7 +483,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           <select
             value={category ?? ""}
             onChange={(e) => setCategory(e.target.value || null)}
-            className="shrink-0 cursor-pointer appearance-none rounded-full border-0 bg-neutral-100 px-3 py-2 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
+            className="shrink-0 cursor-pointer appearance-none rounded-xl border-0 bg-neutral-100 px-3 py-2 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
           >
             <option value="">All folders</option>
             {categories.map((cat) => (
@@ -472,19 +492,6 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
               </option>
             ))}
           </select>
-
-          {/* Refresh */}
-          <button
-            type="button"
-            onClick={() => invalidateAll()}
-            title="Refresh"
-            className="shrink-0 rounded-full bg-neutral-100 p-2 text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 dark:bg-white/10 dark:text-white/50 dark:hover:bg-white/20 dark:hover:text-white"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
-          </button>
         </div>
 
         {/* Drop a link / quick-add — center stage */}

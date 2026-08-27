@@ -109,9 +109,10 @@ export function ChatPanel({
               onClick={() => void signOut({ callbackUrl: "/" })}
               title="Sign out"
               aria-label="Sign out"
-              className="rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+              className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-700 dark:border-white/15 dark:bg-white/5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
             >
-              ⏻
+              <span aria-hidden>⏻</span>
+              Sign out
             </button>
             {onClose && (
               <button
