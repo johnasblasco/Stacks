@@ -37,6 +37,27 @@ const STATUS_TABS: { value: CardStatus; label: string }[] = [
   { value: "trashed", label: "Trash" },
 ];
 
+/** Highlights matching substrings in text. */
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) return <>{text}</>;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(${escaped})`, "gi");
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="rounded-sm bg-yellow-200/70 px-0.5 text-inherit dark:bg-yellow-500/30">
+            {part}
+          </mark>
+        ) : (
+          <React.Fragment key={i}>{part}</React.Fragment>
+        ),
+      )}
+    </>
+  );
+}
+
 function formatDate(date: Date): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
     new Date(date),
@@ -70,6 +91,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [category, setCategory] = useState<string | null>(null);
   const [status, setStatus] = useState<CardStatus>("active");
@@ -117,18 +139,39 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     };
   }, []);
 
-  // Cmd/Ctrl+K to focus search
+  // Cmd/Ctrl+K to focus search, Ctrl+Shift+N for capture, ? for shortcuts
+  const captureInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      const isInput = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable;
+
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         searchRef.current?.focus();
         searchRef.current?.select();
       }
+
+      // Ctrl+Shift+N → focus capture input
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "N") {
+        e.preventDefault();
+        captureInputRef.current?.focus();
+      }
+
+      // ? key → open shortcut cheat sheet (when not typing)
+      if (!isInput && e.key === "?" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setShowShortcuts((v) => !v);
+      }
+
+      // Escape closes shortcut sheet
+      if (e.key === "Escape" && showShortcuts) {
+        setShowShortcuts(false);
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [showShortcuts]);
 
   // Swipe-to-delete state (mobile)
   const [swipeCardId, setSwipeCardId] = useState<number | null>(null);
@@ -157,17 +200,20 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   }, []);
 
   const handleTouchEnd = useCallback(() => {
-    if (swipeCardId && swipeX < -100) {
-      // Swipe left → trash
-      swipeAction.mutate({ ids: [swipeCardId], action: "trash" });
-      showUndoNotice("Card moved to trash", {
-        ids: [swipeCardId],
-        action: "activate",
-      });
-    } else if (swipeCardId && swipeX > 100) {
-      // Swipe right → archive
-      swipeAction.mutate({ ids: [swipeCardId], action: "archive" });
-      showNotice("Archived");
+    // Haptic feedback on threshold crossing
+    if (swipeCardId) {
+      if (swipeX < -100) {
+        try { navigator.vibrate?.(20); } catch { /* no-op */ }
+        swipeAction.mutate({ ids: [swipeCardId], action: "trash" });
+        showUndoNotice("Card moved to trash", {
+          ids: [swipeCardId],
+          action: "activate",
+        });
+      } else if (swipeX > 100) {
+        try { navigator.vibrate?.(20); } catch { /* no-op */ }
+        swipeAction.mutate({ ids: [swipeCardId], action: "archive" });
+        showNotice("Archived");
+      }
     }
     touchStartRef.current = null;
     setSwipeCardId(null);
@@ -434,7 +480,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
 
         {/* Drop a link / quick-add */}
         <div className="mt-3">
-          <CaptureInput onResult={handleCaptureResult} categories={categories} />
+          <CaptureInput ref={captureInputRef} onResult={handleCaptureResult} categories={categories} />
         </div>
 
         {notice && (
@@ -702,11 +748,11 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                     {card.category}
                   </span>
                   <h3 className="font-semibold text-neutral-900 dark:text-white">
-                    {card.title}
+                    <HighlightText text={card.title} query={debouncedQuery} />
                   </h3>
                   {card.note && (
                     <p className="line-clamp-3 text-xs leading-relaxed text-neutral-500 dark:text-white/50">
-                      {card.note}
+                      <HighlightText text={card.note} query={debouncedQuery} />
                     </p>
                   )}
                   <div className="mt-auto flex w-full items-center justify-end gap-2 pt-1">
@@ -754,6 +800,53 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
             onSelectCard={(id) => onSelectCard(id)}
           />
         </Suspense>
+      )}
+
+      {/* Shortcut cheat sheet */}
+      {showShortcuts && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowShortcuts(false)}
+          onKeyDown={(e) => e.key === "Escape" && setShowShortcuts(false)}
+          role="dialog"
+          aria-label="Keyboard shortcuts"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#1d1f3a]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Keyboard Shortcuts</h3>
+            <div className="space-y-2 text-sm">
+              {[
+                ["⌘K / Ctrl+K", "Focus search"],
+                ["⌘⇧N / Ctrl+Shift+N", "Open capture input"],
+                ["j / ↓", "Next card"],
+                ["k / ↑", "Previous card"],
+                ["e / Enter", "Edit focused card"],
+                ["d / Delete", "Trash focused card"],
+                ["?", "Toggle this cheat sheet"],
+                ["Escape", "Deselect / close"],
+              ].map(([key, desc]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-neutral-500 dark:text-white/50">{desc}</span>
+                  <kbd className="rounded-md border border-neutral-300 bg-neutral-100 px-2 py-0.5 font-mono text-xs text-neutral-700 dark:border-white/20 dark:bg-white/10 dark:text-white/80">
+                    {key}
+                  </kbd>
+                </div>
+              ))}
+              <p className="mt-3 text-xs text-neutral-400 dark:text-white/30">
+                Mobile: swipe left → trash, swipe right → archive
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowShortcuts(false)}
+              className="mt-4 w-full rounded-full bg-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-600"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
       )}
 
       {/* New folder modal */}
