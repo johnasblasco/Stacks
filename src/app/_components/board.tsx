@@ -1,6 +1,5 @@
 "use client";
 
-import { signOut } from "next-auth/react";
 import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import type { inferRouterOutputs } from "@trpc/server";
@@ -13,7 +12,7 @@ import { CaptureInput } from "./capture-input";
 import type { CaptureResult } from "./capture-input";
 import type { ContextMenuItem } from "./context-menu";
 import { InlineCardEditor } from "./inline-card-editor";
-import { ThemeToggle } from "./theme-toggle";
+
 
 const ContextMenu = React.lazy(() =>
   import("./context-menu").then((m) => ({ default: m.ContextMenu })),
@@ -507,20 +506,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
             <option value="color">Color</option>
           </select>
 
-          <span className="mx-1 h-4 w-px bg-neutral-200 dark:bg-white/10" />
 
-          {/* Theme + Sign out */}
-          <ThemeToggle />
-          <button
-            type="button"
-            onClick={() => void signOut({ callbackUrl: "/" })}
-            title="Sign out"
-            aria-label="Sign out"
-            className="flex h-6 items-center gap-1 rounded-full border border-neutral-300 bg-white px-2 text-[10px] font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white/70 dark:hover:bg-white/10"
-          >
-            <span aria-hidden>⏻</span>
-            <span className="hidden sm:inline">Sign out</span>
-          </button>
         </div>
 
         {/* Drop a link / quick-add */}

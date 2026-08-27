@@ -1,8 +1,10 @@
 "use client";
 
+import { signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 
 import { api } from "@/trpc/react";
+import { ThemeToggle } from "./theme-toggle";
 
 type AskResult = { kind: "answered"; answer: string; usedCardIds: number[] } | {
   kind: "rejected";
@@ -97,19 +99,31 @@ export function ChatPanel({
             </h2>
             <p className="text-xs text-neutral-500 dark:text-white/40">
               Ask anything — I can use your saved cards or answer from general
-              knowledge. To file something new, use the bar above the board.
+              knowledge.
             </p>
           </div>
-          {onClose && (
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
             <button
               type="button"
-              onClick={onClose}
-              aria-label="Close chat panel"
-              className="-mr-1 rounded-full p-1.5 leading-none text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+              onClick={() => void signOut({ callbackUrl: "/" })}
+              title="Sign out"
+              aria-label="Sign out"
+              className="rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
             >
-              ✕
+              ⏻
             </button>
-          )}
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close chat panel"
+                className="rounded-full p-1.5 leading-none text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
