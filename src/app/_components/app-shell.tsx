@@ -30,7 +30,11 @@ export function AppShell() {
           onClick={() => setChatOpen((v) => !v)}
           aria-label="Toggle Ask Stacks"
           title="Ask Stacks"
-          className="hidden items-center justify-center rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-white/15 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10 lg:flex"
+          className={`hidden items-center justify-center rounded-full border px-3 py-1.5 text-xs font-medium transition lg:flex ${
+            chatOpen
+              ? "border-violet-300 bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 dark:border-violet-400/30 dark:text-violet-300 dark:hover:bg-violet-500/20"
+              : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 dark:border-white/15 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10"
+          }`}
         >
           💬 Ask
         </button>
@@ -47,16 +51,6 @@ export function AppShell() {
         </button>
       </div>
 
-      {/* Chat panel — docked LEFT on desktop; ask-only, reads saved cards */}
-      <div className="hidden w-96 shrink-0 lg:block">
-        <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
-          <ChatPanel
-            onAnswered={(ids) => setHighlightedIds(ids)}
-            onSelectCard={openCard}
-          />
-        </Suspense>
-      </div>
-
       {/* Board — main surface */}
       <Board
         highlightedIds={highlightedIds}
@@ -65,33 +59,20 @@ export function AppShell() {
         onExpandHandled={() => setExpandCardId(null)}
       />
 
-      {/* Chat panel — mobile: fullscreen overlay; desktop: sidebar toggle */}
+      {/* Chat panel — mobile: fullscreen overlay on tap; desktop: always visible sidebar */}
       {chatOpen && (
-        <>
-          {/* Mobile: fullscreen overlay */}
-          <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#111327] lg:hidden">
-            <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
-              <ChatPanel
-                onClose={() => setChatOpen(false)}
-                onAnswered={(ids) => setHighlightedIds(ids)}
-                onSelectCard={openCard}
-              />
-            </Suspense>
-          </div>
-          {/* Desktop: inline slide-in panel */}
-          <div className="fixed inset-y-0 right-0 z-40 hidden w-96 shadow-2xl lg:block">
-            <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
-              <ChatPanel
-                onClose={() => setChatOpen(false)}
-                onAnswered={(ids) => setHighlightedIds(ids)}
-                onSelectCard={openCard}
-              />
-            </Suspense>
-          </div>
-        </>
+        <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#111327] lg:relative lg:z-auto lg:h-full lg:w-96 lg:shrink-0 lg:border-r lg:border-neutral-200 lg:shadow-none dark:lg:border-white/10">
+          <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
+            <ChatPanel
+              onClose={() => setChatOpen(false)}
+              onAnswered={(ids) => setHighlightedIds(ids)}
+              onSelectCard={openCard}
+            />
+          </Suspense>
+        </div>
       )}
 
-      {/* Mobile floating chat FAB */}
+      {/* Mobile floating chat FAB — only on screens below lg */}
       {!chatOpen && (
         <button
           type="button"
