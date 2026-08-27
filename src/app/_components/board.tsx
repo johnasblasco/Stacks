@@ -1,5 +1,6 @@
 "use client";
 
+import { signOut } from "next-auth/react";
 import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import type { inferRouterOutputs } from "@trpc/server";
@@ -12,6 +13,7 @@ import { CaptureInput } from "./capture-input";
 import type { CaptureResult } from "./capture-input";
 import type { ContextMenuItem } from "./context-menu";
 import { InlineCardEditor } from "./inline-card-editor";
+import { ThemeToggle } from "./theme-toggle";
 
 const ContextMenu = React.lazy(() =>
   import("./context-menu").then((m) => ({ default: m.ContextMenu })),
@@ -92,9 +94,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<"date" | "alpha" | "color">("date");
-  const [density, setDensity] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [category, setCategory] = useState<string | null>(null);
   const [status, setStatus] = useState<CardStatus>("active");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -507,34 +507,19 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
             <option value="color">Color</option>
           </select>
 
-          {/* Density toggle */}
-          <button
-            type="button"
-            onClick={() => setDensity((d) => d === "compact" ? "comfortable" : d === "comfortable" ? "spacious" : "compact")}
-            title={`Density: ${density}`}
-            className="rounded-full px-2 py-1 text-[10px] font-medium text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
-          >
-            {density === "compact" ? "◼" : density === "comfortable" ? "◼◼" : "◼◼◼"}
-          </button>
+          <span className="mx-1 h-4 w-px bg-neutral-200 dark:bg-white/10" />
 
-          {/* View toggle */}
+          {/* Theme + Sign out */}
+          <ThemeToggle />
           <button
             type="button"
-            onClick={() => setViewMode((v) => (v === "grid" ? "list" : "grid"))}
-            title={viewMode === "grid" ? "Switch to list view" : "Switch to grid view"}
-            className="rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+            onClick={() => void signOut({ callbackUrl: "/" })}
+            title="Sign out"
+            aria-label="Sign out"
+            className="flex h-6 items-center gap-1 rounded-full border border-neutral-300 bg-white px-2 text-[10px] font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white/70 dark:hover:bg-white/10"
           >
-            {viewMode === "grid" ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-                <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-              </svg>
-            )}
+            <span aria-hidden>⏻</span>
+            <span className="hidden sm:inline">Sign out</span>
           </button>
         </div>
 
@@ -694,15 +679,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
 
       {/* Card grid / list — right-click empty space for new note/folder */}
       <div
-        className={
-          viewMode === "grid"
-            ? `grid flex-1 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 ${
-                density === "compact" ? "gap-2 p-3 sm:p-4" : density === "spacious" ? "gap-6 p-6 sm:p-8" : "gap-4 p-4 sm:p-6"
-              }`
-            : `flex flex-1 flex-col ${
-                density === "compact" ? "gap-1 p-3 sm:p-4" : density === "spacious" ? "gap-3 p-6 sm:p-8" : "gap-2 p-4 sm:p-6"
-              }`
-        }
+        className="grid flex-1 grid-cols-1 gap-6 p-6 sm:grid-cols-2 sm:p-8 xl:grid-cols-3"
         onContextMenu={(e) =>
           openMenu(e, [
             {
@@ -731,7 +708,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           return (
             <div
               key={card.id}
-              className={`${viewMode === "grid" ? "relative" : "relative flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"} ${swipeCardId === card.id ? "" : "transition-transform"} ${focusedCardIdx >= 0 && cards[focusedCardIdx]?.id === card.id ? "ring-2 ring-violet-400/70" : ""}`}
+              className={`relative ${swipeCardId === card.id ? "" : "transition-transform"} ${focusedCardIdx >= 0 && cards[focusedCardIdx]?.id === card.id ? "ring-2 ring-violet-400/70" : ""}`}
               style={swipeCardId === card.id ? { transform: `translateX(${swipeX}px)` } : undefined}
               draggable
               onDragStart={() => setDragId(card.id)}
@@ -824,7 +801,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                       },
                     ])
                   }
-                  className={`flex w-full flex-col items-start gap-2 rounded-xl border pr-10 text-left shadow-sm transition hover:border-neutral-300 hover:bg-neutral-100 dark:hover:border-white/30 dark:hover:bg-white/10 ${density === "compact" ? "p-2 gap-1" : density === "spacious" ? "p-6 gap-3" : "p-4 gap-2"} ${
+                  className={`flex w-full flex-col items-start gap-3 rounded-xl border p-6 pr-10 text-left shadow-sm transition hover:border-neutral-300 hover:bg-neutral-100 dark:hover:border-white/30 dark:hover:bg-white/10 ${
                     isSelected
                       ? "border-violet-400 bg-violet-500/20"
                       : highlighted

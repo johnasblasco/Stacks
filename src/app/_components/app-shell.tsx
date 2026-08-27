@@ -1,10 +1,8 @@
 "use client";
 
-import { signOut } from "next-auth/react";
 import React, { Suspense, useState } from "react";
 
 import { Board } from "./board";
-import { ThemeToggle } from "./theme-toggle";
 
 const ChatPanel = React.lazy(() =>
   import("./chat-panel").then((m) => ({ default: m.ChatPanel })),
@@ -22,21 +20,6 @@ export function AppShell() {
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-[#15162c] dark:text-white">
-      {/* Top-right controls */}
-      <div className="absolute right-3 top-3 z-30 flex items-center gap-2">
-        <ThemeToggle />
-        <button
-          type="button"
-          onClick={() => void signOut({ callbackUrl: "/" })}
-          title="Sign out"
-          aria-label="Sign out"
-          className="flex h-8 items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-white/15 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10"
-        >
-          <span aria-hidden>⏻</span>
-          <span className="hidden sm:inline">Sign out</span>
-        </button>
-      </div>
-
       {/* Board — main surface */}
       <Board
         highlightedIds={highlightedIds}
