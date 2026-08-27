@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { Card } from "./board";
 import { api } from "@/trpc/react";
 
-interface NewCardModalProps {
+interface EditCardModalProps {
+  card: Card;
   existingCategories: string[];
-  /** Folder pre-selected from the context menu, if any. */
-  initialCategory?: string;
   onClose: () => void;
 }
 
@@ -28,33 +28,30 @@ const NOTE_COLORS = [
 ] as const;
 
 /**
- * Google Keep-style note editor modal.
- * - Centered dialog with clean white card appearance
- * - Optional title input (auto-focuses body if title is empty)
- * - Large multiline body supporting paragraphs, line breaks, scrolling
- * - Grows naturally for short notes, max-height for long notes
- * - Dismiss on click-outside or Escape key
+ * Google Keep-style edit modal for existing cards.
+ * Pre-filled with the card's current title, note, URL, category, and color.
+ * Supports inline editing of all fields.
  */
-export function NewCardModal({
+export function EditCardModal({
+  card,
   existingCategories,
-  initialCategory,
   onClose,
-}: NewCardModalProps) {
-  const [title, setTitle] = useState("");
-  const [note, setNote] = useState("");
-  const [url, setUrl] = useState("");
-  const [category, setCategory] = useState(initialCategory ?? "");
-  const [color, setColor] = useState<string | null>(null);
+}: EditCardModalProps) {
+  const [title, setTitle] = useState(card.title);
+  const [note, setNote] = useState(card.note);
+  const [url, setUrl] = useState(card.url ?? "");
+  const [category, setCategory] = useState(card.category);
+  const [color, setColor] = useState<string | null>(card.color);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [showUrl, setShowUrl] = useState(false);
+  const [showUrl, setShowUrl] = useState(!!card.url);
   const [showColors, setShowColors] = useState(false);
 
   const titleRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const colorPanelRef = useRef<HTMLDivElement>(null);
 
-  // Auto-focus the title on mount
+  // Auto-focus title on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       titleRef.current?.focus();
@@ -83,7 +80,7 @@ export function NewCardModal({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showColors]);
 
-  // Auto-resize body textarea as content grows
+  // Auto-resize body textarea
   const autoResize = useCallback(() => {
     const el = bodyRef.current;
     if (!el) return;
@@ -96,11 +93,12 @@ export function NewCardModal({
   }, [note, autoResize]);
 
   const utils = api.useUtils();
-  const create = api.cards.create.useMutation({
+  const update = api.cards.update.useMutation({
     onSuccess: async () => {
       await Promise.all([
         utils.cards.list.invalidate(),
         utils.cards.categories.invalidate(),
+        utils.cards.byId.invalidate({ id: card.id }),
       ]);
       onClose();
     },
@@ -142,7 +140,8 @@ export function NewCardModal({
     setSaving(true);
     setError(null);
 
-    create.mutate({
+    update.mutate({
+      id: card.id,
       title: trimmedTitle,
       note: trimmedNote,
       url: parsedUrl,
@@ -151,7 +150,6 @@ export function NewCardModal({
     });
   };
 
-  // Handle Ctrl+Enter / Cmd+Enter to save
   const handleBodyKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();
@@ -175,7 +173,6 @@ export function NewCardModal({
       >
         {/* Note content area */}
         <div className="flex flex-col gap-0 p-6 pb-2">
-          {/* Title input — optional, single-line */}
           <input
             ref={titleRef}
             type="text"
@@ -185,7 +182,6 @@ export function NewCardModal({
             className="w-full border-none bg-transparent pb-1 text-lg font-medium text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-white dark:placeholder:text-white/40"
           />
 
-          {/* Body textarea — large multiline editor */}
           <textarea
             ref={bodyRef}
             value={note}
@@ -201,7 +197,7 @@ export function NewCardModal({
           />
         </div>
 
-        {/* Optional URL field — appears inline when toggled */}
+        {/* Optional URL field */}
         {showUrl && (
           <div className="flex items-center gap-2 px-6 pb-2">
             <span className="text-xs text-neutral-400 dark:text-white/40">🔗</span>
@@ -213,9 +209,7 @@ export function NewCardModal({
               placeholder="https://example.com"
               className="w-full border-none bg-transparent text-sm text-neutral-700 outline-none placeholder:text-neutral-400 dark:text-white/70 dark:placeholder:text-white/30"
               onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setShowUrl(false);
-                }
+                if (e.key === "Escape") setShowUrl(false);
               }}
             />
             <button
@@ -231,19 +225,17 @@ export function NewCardModal({
           </div>
         )}
 
-        {/* Folder selector row */}
+        {/* Folder selector */}
         <div className="flex items-center gap-2 px-6 pb-2">
-          <label className="text-xs text-neutral-400 dark:text-white/40">
-            Folder
-          </label>
+          <label className="text-xs text-neutral-400 dark:text-white/40">Folder</label>
           <input
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             placeholder="Choose or type…"
-            list="new-card-folders"
+            list="edit-card-folders"
             className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs text-neutral-700 outline-none focus:border-neutral-400 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:focus:border-white/30"
           />
-          <datalist id="new-card-folders">
+          <datalist id="edit-card-folders">
             {existingCategories.map((cat) => (
               <option key={cat} value={cat} />
             ))}
@@ -259,11 +251,10 @@ export function NewCardModal({
           </div>
         )}
 
-        {/* Toolbar / action bar */}
+        {/* Toolbar */}
         <div className="relative flex items-center justify-between border-t border-neutral-100 px-4 py-2 dark:border-white/5">
-          {/* Left side: action icons */}
           <div className="flex items-center gap-1">
-            {/* Color picker button */}
+            {/* Color picker */}
             <div ref={colorPanelRef} className="relative">
               <button
                 type="button"
@@ -279,8 +270,6 @@ export function NewCardModal({
                   <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
                 </svg>
               </button>
-
-              {/* Color palette popover */}
               {showColors && (
                 <div className="absolute bottom-full left-0 z-10 mb-2 flex flex-wrap gap-1.5 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-[#252749]">
                   {NOTE_COLORS.map((c) => (
@@ -327,7 +316,6 @@ export function NewCardModal({
             )}
           </div>
 
-          {/* Right side: Save */}
           <div className="flex items-center gap-2">
             <button
               type="button"

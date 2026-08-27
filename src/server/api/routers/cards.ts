@@ -90,7 +90,7 @@ export const cardsRouter = createTRPCRouter({
 
       return ctx.db.query.cards.findMany({
         where: and(...conditions),
-        orderBy: [desc(cards.savedAt)],
+        orderBy: [desc(cards.pinned), desc(cards.savedAt)],
       });
     }),
 
@@ -243,26 +243,31 @@ export const cardsRouter = createTRPCRouter({
   create: protectedProcedure
     .input(
       z.object({
-        title: z.string().min(1).max(512),
+        title: z.string().max(512).default(""),
         note: z.string().max(10_000).default(""),
         url: z.string().url().nullable().optional(),
         category: z.string().min(1).max(128),
+        color: z.string().max(32).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const body = input.note.trim();
+      const title = input.title.trim() || (body ? body.split("\n")[0]!.slice(0, 80) : "Untitled note");
+
       const inserted = await ctx.db
         .insert(cards)
         .values({
           userId: ctx.session.user.id,
           url: input.url ?? null,
-          note: input.note.length > 0 ? input.note : input.title,
-          title: input.title,
+          note: body || title,
+          title,
           summary:
-            input.note.length > 0
-              ? input.note.slice(0, 200)
+            body.length > 0
+              ? body.slice(0, 200)
               : `Manually filed under ${input.category}.`,
           tags: [],
           category: input.category,
+          color: input.color ?? null,
         })
         .returning();
 
@@ -286,6 +291,8 @@ export const cardsRouter = createTRPCRouter({
       z.object({
         text: z.string().min(1).max(10_000),
         mode: z.enum(["auto", "file", "ask"]).default("auto"),
+        category: z.string().max(128).optional(),
+        color: z.string().max(32).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }): Promise<CaptureResult> => {
@@ -403,7 +410,8 @@ export const cardsRouter = createTRPCRouter({
           title: enrichment.title,
           summary: enrichment.summary,
           tags: enrichment.tags,
-          category: enrichment.category,
+          category: input.category || enrichment.category,
+          color: input.color ?? null,
         })
         .returning();
 
@@ -459,6 +467,8 @@ export const cardsRouter = createTRPCRouter({
         url: z.string().url().nullable().optional(),
         tags: z.array(z.string().max(64)).min(0).max(8).optional(),
         category: z.string().min(1).max(128).optional(),
+        color: z.string().max(32).nullable().optional(),
+        pinned: z.boolean().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -581,5 +591,20 @@ export const cardsRouter = createTRPCRouter({
       await ctx.db
         .delete(cards)
         .where(and(inArray(cards.id, input.ids), eq(cards.userId, ctx.session.user.id)));
+    }),
+
+  /** Toggle pin/unpin a card — pinned cards sort to the top. */
+  togglePin: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const card = await ctx.db.query.cards.findFirst({
+        where: and(eq(cards.id, input.id), eq(cards.userId, ctx.session.user.id)),
+      });
+      if (!card) throw new TRPCError({ code: "NOT_FOUND" });
+
+      await ctx.db
+        .update(cards)
+        .set({ pinned: !card.pinned })
+        .where(eq(cards.id, card.id));
     }),
 });

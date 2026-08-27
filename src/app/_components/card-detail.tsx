@@ -55,10 +55,7 @@ export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
 
   // Editable fields — initialized from the card once it loads
   const [editTitle, setEditTitle] = useState(card?.title ?? "");
-  const [editSummary, setEditSummary] = useState(card?.summary ?? "");
   const [editNote, setEditNote] = useState(card?.note ?? "");
-  const [editTags, setEditTags] = useState<string[]>(card?.tags ?? []);
-  const [editTagInput, setEditTagInput] = useState("");
   const [editCategory, setEditCategory] = useState(card?.category ?? "");
 
   const invalidate = async () => {
@@ -107,10 +104,8 @@ export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
   const c = card;
   const hasChanges =
     editTitle.trim() !== c.title ||
-    editSummary.trim() !== c.summary ||
     editNote.trim() !== c.note ||
-    editCategory.trim() !== c.category ||
-    JSON.stringify(editTags) !== JSON.stringify(c.tags);
+    editCategory.trim() !== c.category;
 
   // Preview: render note text with auto-detected clickable links
   const notePreview = useMemo(
@@ -119,39 +114,23 @@ export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
   );
 
   function saveEdits() {
-    if (!editTitle.trim() || !editSummary.trim() || !editNote.trim()) return;
-    // Auto-extract the first URL from the note for the DB url field
+    if (!editTitle.trim() || !editNote.trim()) return;
     const extractedUrl = extractFirstUrl(editNote.trim());
     updateCard.mutate({
       id: c.id,
       title: editTitle.trim(),
-      summary: editSummary.trim(),
+      summary: editNote.trim().slice(0, 200),
       note: editNote.trim(),
       url: extractedUrl,
-      tags: editTags,
+      tags: c.tags,
       category: editCategory.trim() || c.category,
     });
   }
 
   function resetEdits() {
     setEditTitle(c.title);
-    setEditSummary(c.summary);
     setEditNote(c.note);
-    setEditTags([...c.tags]);
     setEditCategory(c.category);
-    setEditTagInput("");
-  }
-
-  function addTag() {
-    const tag = editTagInput.trim().toLowerCase();
-    if (tag && !editTags.includes(tag) && editTags.length < 8) {
-      setEditTags([...editTags, tag]);
-      setEditTagInput("");
-    }
-  }
-
-  function removeTag(tag: string) {
-    setEditTags(editTags.filter((t) => t !== tag));
   }
 
   return (
@@ -176,61 +155,6 @@ export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
           className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xl font-bold text-neutral-900 outline-none focus:border-violet-500 dark:border-white/20 dark:bg-black/30 dark:text-white dark:focus:border-violet-400"
           placeholder="Title"
         />
-        {/* Summary */}
-        <textarea
-          value={editSummary}
-          onChange={(e) => setEditSummary(e.target.value)}
-          rows={2}
-          className="resize-none rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-600 outline-none focus:border-violet-500 dark:border-white/20 dark:bg-black/30 dark:text-white/70 dark:focus:border-violet-400"
-          placeholder="Summary"
-        />
-        {/* Tags */}
-        <div>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-white/40">
-            Tags
-          </h3>
-          <div className="flex flex-wrap gap-1 mb-1">
-            {editTags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700 dark:bg-violet-500/20 dark:text-violet-300"
-              >
-                #{tag}
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="ml-0.5 rounded-full hover:bg-violet-200 dark:hover:bg-violet-500/30"
-                  aria-label={`Remove tag ${tag}`}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              value={editTagInput}
-              onChange={(e) => setEditTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addTag();
-                }
-              }}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-900 outline-none focus:border-violet-500 dark:border-white/20 dark:bg-black/30 dark:text-white dark:focus:border-violet-400"
-              placeholder="Add tag and press Enter"
-              disabled={editTags.length >= 8}
-            />
-            <button
-              type="button"
-              onClick={addTag}
-              disabled={!editTagInput.trim() || editTags.length >= 8}
-              className="shrink-0 rounded-full bg-violet-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-400 disabled:opacity-40"
-            >
-              Add
-            </button>
-          </div>
-        </div>
         {/* Note — editable textarea + live preview with clickable links */}
         <div>
           <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-white/40">
@@ -306,7 +230,6 @@ export function CardDetail({ cardId, onClose, onSelectCard }: CardDetailProps) {
               disabled={
                 updateCard.isPending ||
                 !editTitle.trim() ||
-                !editSummary.trim() ||
                 !editNote.trim() ||
                 !hasChanges
               }

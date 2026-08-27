@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import type { inferRouterOutputs } from "@trpc/server";
 
@@ -24,6 +24,9 @@ const NewFolderModal = React.lazy(() =>
 const NewCardModal = React.lazy(() =>
   import("./new-card-modal").then((m) => ({ default: m.NewCardModal })),
 );
+const EditCardModal = React.lazy(() =>
+  import("./edit-card-modal").then((m) => ({ default: m.EditCardModal })),
+);
 
 export type Card = inferRouterOutputs<AppRouter>["cards"]["list"][number];
 
@@ -39,6 +42,21 @@ function formatDate(date: Date): string {
   );
 }
 
+/** Maps color name → Tailwind bg/border classes for card tinting. */
+const COLOR_MAP: Record<string, { bg: string; border: string }> = {
+  Coral: { bg: "bg-[#faafa8]", border: "border-[#f28b82]" },
+  Peach: { bg: "bg-[#f7bdce]", border: "border-[#fbbc04]" },
+  Sand: { bg: "bg-[#fcf4a3]", border: "border-[#fff475]" },
+  Mint: { bg: "bg-[#c9f2c7]", border: "border-[#ccff90]" },
+  Sage: { bg: "bg-[#c4edb8]", border: "border-[#a8dab5]" },
+  Fog: { bg: "bg-[#d4e5fc]", border: "border-[#aecbfa]" },
+  Storm: { bg: "bg-[#d3d5fc]", border: "border-[#d7aefb]" },
+  Dusk: { bg: "bg-[#e8d5f5]", border: "border-[#b39ddb]" },
+  Blossom: { bg: "bg-[#fce4ec]", border: "border-[#f48fb1]" },
+  Clay: { bg: "bg-[#efebe9]", border: "border-[#d7ccc8]" },
+  Chalk: { bg: "bg-[#e8eaed]", border: "border-[#dadce0]" },
+};
+
 interface BoardProps {
   highlightedIds: number[];
   onSelectCard: (id: number) => void;
@@ -46,11 +64,40 @@ interface BoardProps {
 
 export function Board({ highlightedIds, onSelectCard }: BoardProps) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [category, setCategory] = useState<string | null>(null);
   const [status, setStatus] = useState<CardStatus>("active");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [moveTarget, setMoveTarget] = useState<string>("");
   const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showNotice = useCallback((msg: string) => {
+    setNotice(msg);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = setTimeout(() => setNotice(null), 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    };
+  }, []);
+
+  const handleQueryChange = useCallback((value: string) => {
+    setQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(value);
+    }, 250);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   // Right-click menu / manual creation / folder containers
   const [menu, setMenu] = useState<{
@@ -59,6 +106,7 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
     items: ContextMenuItem[];
   } | null>(null);
   const [newCard, setNewCard] = useState<{ category?: string } | null>(null);
+  const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [folderModal, setFolderModal] = useState<string | null>(null);
   const [newFolderModal, setNewFolderModal] = useState(false);
 
@@ -78,7 +126,7 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
   };
 
   const [cards] = api.cards.list.useSuspenseQuery({
-    q: query || undefined,
+    q: debouncedQuery || undefined,
     category,
     status,
   });
@@ -94,7 +142,7 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
         activate: "Restored",
         move: `Moved to ${variables.category}`,
       };
-      setNotice(`${labels[variables.action]} (${variables.ids.length} card${variables.ids.length === 1 ? "" : "s"})`);
+      showNotice(`${labels[variables.action]} (${variables.ids.length} card${variables.ids.length === 1 ? "" : "s"})`);
     },
   });
 
@@ -102,21 +150,27 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
     onSuccess: async () => {
       await invalidateAll();
       setSelected(new Set());
-      setNotice("Deleted permanently");
+      showNotice("Deleted permanently");
     },
   });
 
   const createFolder = api.cards.createFolder.useMutation({
     onSuccess: async (_data, variables) => {
       await utils.cards.categories.invalidate();
-      setNotice(`Folder “${variables.name}” created`);
+      showNotice(`Folder “${variables.name}” created`);
+    },
+  });
+
+  const togglePin = api.cards.togglePin.useMutation({
+    onSuccess: async () => {
+      await invalidateAll();
     },
   });
 
   const handleCaptureResult = (result: CaptureResult) => {
-    if (result.kind === "saved") setNotice(result.message);
-    else if (result.kind === "duplicate") setNotice(result.message);
-    else if (result.kind === "rejected") setNotice(result.reason);
+    if (result.kind === "saved") showNotice(result.message);
+    else if (result.kind === "duplicate") showNotice(result.message);
+    else if (result.kind === "rejected") showNotice(result.reason);
   };
 
   const toggleSelect = (id: number) => {
@@ -134,12 +188,40 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
     <section className="flex h-full flex-1 flex-col overflow-y-auto">
       {/* Quick-add */}
       <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white/90 px-4 py-4 pr-36 backdrop-blur dark:border-white/10 dark:bg-[#15162c]/90 sm:px-6 sm:pr-48">
-        <CaptureInput
-          placeholder="Drop a link, a note, a half-formed idea…"
-          onResult={handleCaptureResult}
-        />
+        {/* Search — prominent, top of the header */}
+        <div className="relative">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-white/40"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="m21 21-5.2-5.2M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+            />
+          </svg>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => handleQueryChange(e.target.value)}
+            placeholder="Search everything…"
+            className="w-full rounded-full border border-neutral-300 bg-white py-2 pl-10 pr-4 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/40 dark:focus:border-violet-400 dark:focus:ring-violet-400/20"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => handleQueryChange("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-white/40 dark:hover:text-white/70"
+            >
+              ✕
+            </button>
+          )}
+        </div>
 
-        {/* Status tabs */}
+        {/* Status tabs + folder filter row */}
         <div className="mt-3 flex items-center gap-1">
           {STATUS_TABS.map((tab) => (
             <button
@@ -158,23 +240,15 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
               {tab.label}
             </button>
           ))}
-        </div>
 
-        {/* Search + folder filter */}
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search title, note, tags…"
-            className="w-full rounded-full border border-neutral-300 bg-white px-4 py-1.5 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/40 dark:focus:border-white/30 sm:w-64"
-          />
-          {/* Folder filter — quiet dropdown instead of pill chips */}
+          <span className="mx-1 h-4 w-px bg-neutral-200 dark:bg-white/10" />
+
+          {/* Folder filter */}
           <select
             value={category ?? ""}
             onChange={(e) => setCategory(e.target.value || null)}
             aria-label="Filter by folder"
-            className="rounded-full border border-neutral-300 bg-white px-4 py-1.5 text-xs text-neutral-700 outline-none dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white/80 dark:[color-scheme:dark]"
+            className="rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs text-neutral-700 outline-none dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white/80 dark:[color-scheme:dark]"
           >
             <option value="">All folders</option>
             {categories.map((cat) => (
@@ -192,16 +266,14 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
           </button>
         </div>
 
+        {/* Drop a link / quick-add */}
+        <div className="mt-3">
+          <CaptureInput onResult={handleCaptureResult} categories={categories} />
+        </div>
+
         {notice && (
           <p className="mt-2 truncate rounded-lg bg-violet-500/15 px-3 py-1.5 text-xs text-violet-800 dark:text-violet-200">
             {notice}
-            <button
-              type="button"
-              onClick={() => setNotice(null)}
-              className="ml-2 text-neutral-400 hover:text-neutral-700 dark:text-white/40 dark:hover:text-white"
-            >
-              ✕
-            </button>
           </p>
         )}
       </div>
@@ -323,6 +395,8 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
         {cards.map((card) => {
           const highlighted = highlightedIds.includes(card.id);
           const isSelected = selected.has(card.id);
+          const colorDef = card.color ? COLOR_MAP[card.color] : null;
+          const isPinned = card.pinned;
           return (
             <div key={card.id} className="relative">
               {/* Multi-select checkbox */}
@@ -338,6 +412,12 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
               >
                 ✓
               </button>
+              {/* Pin indicator */}
+              {isPinned && (
+                <span className="absolute left-3 top-3 z-10 text-xs" title="Pinned">
+                  📌
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => onSelectCard(card.id)}
@@ -346,6 +426,14 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
                     {
                       label: "Open",
                       onSelect: () => onSelectCard(card.id),
+                    },
+                    {
+                      label: "Edit",
+                      onSelect: () => setEditingCard(card),
+                    },
+                    {
+                      label: isPinned ? "Unpin" : "Pin to top",
+                      onSelect: () => togglePin.mutate({ id: card.id }),
                     },
                     {
                       label: `Open folder “${card.category}”`,
@@ -375,7 +463,9 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
                     ? "border-violet-400 bg-violet-500/20"
                     : highlighted
                       ? "border-violet-400 bg-violet-500/10 ring-2 ring-violet-400/60"
-                      : "border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5"
+                      : colorDef
+                        ? `${colorDef.bg} ${colorDef.border} border-2`
+                        : "border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5"
                 }`}
               >
                 {/* Folder label — click to open the folder container */}
@@ -400,20 +490,7 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
                 <h3 className="font-semibold text-neutral-900 dark:text-white">
                   {card.title}
                 </h3>
-                <p className="line-clamp-2 text-sm text-neutral-600 dark:text-white/60">
-                  {card.summary}
-                </p>
-                <div className="mt-auto flex w-full flex-wrap items-center justify-between gap-2 pt-2">
-                  <div className="flex flex-wrap gap-1">
-                    {card.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600 dark:bg-white/10 dark:text-white/70"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
+                <div className="mt-auto flex w-full items-center justify-end gap-2 pt-1">
                   <span className="text-[11px] text-neutral-400 dark:text-white/40">
                     {formatDate(card.savedAt)}
                     {card.url ? " · 🔗" : ""}
@@ -463,6 +540,16 @@ export function Board({ highlightedIds, onSelectCard }: BoardProps) {
       {newFolderModal && (
         <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
           <NewFolderModal onClose={() => setNewFolderModal(false)} />
+        </Suspense>
+      )}
+
+      {/* Edit card modal */}
+      {editingCard && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
+          <EditCardModal
+            card={editingCard}
+            existingCategories={categories}
+            onClose={() => setEditingCard(null)} />
         </Suspense>
       )}
     </section>

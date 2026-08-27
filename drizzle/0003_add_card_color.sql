@@ -1,0 +1,1 @@
+ALTER TABLE "secret_card" ADD COLUMN "color" varchar(32);

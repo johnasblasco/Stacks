@@ -32,6 +32,8 @@ export const cards = createTable(
     summary: d.text().notNull(),
     tags: d.jsonb("tags").$type<string[]>().notNull(),
     category: d.varchar({ length: 128 }).notNull(),
+    color: d.varchar({ length: 32 }),
+    pinned: d.boolean().notNull().default(false),
     status: d.varchar({ length: 16 }).$type<CardStatus>().notNull().default("active"),
     savedAt: d
       .timestamp({ withTimezone: true })
