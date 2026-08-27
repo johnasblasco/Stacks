@@ -12,7 +12,7 @@ const ChatPanel = React.lazy(() =>
 
 export function AppShell() {
   const [highlightedIds, setHighlightedIds] = useState<number[]>([]);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
   const [expandCardId, setExpandCardId] = useState<number | null>(null);
 
   const openCard = (id: number) => {
