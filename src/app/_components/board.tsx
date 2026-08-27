@@ -441,63 +441,44 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           )}
         </div>
 
-        {/* Google Keep-style pill tabs */}
-        <div className="mt-3 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => {
-                setStatus(tab.value);
-                setSelected(new Set());
-              }}
-              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
-                status === tab.value
-                  ? "bg-violet-500 text-white shadow-sm"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-
-          <span className="mx-0.5 h-4 w-px shrink-0 bg-neutral-200 dark:bg-white/10" />
-
-          {/* Folder pills */}
-          <button
-            type="button"
-            onClick={() => setCategory(null)}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-              category === null
-                ? "bg-violet-500 text-white shadow-sm"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20"
-            }`}
+        {/* Compact filter row — two pill dropdowns + refresh */}
+        <div className="mt-3 flex items-center justify-center gap-2">
+          {/* Status pill dropdown */}
+          <select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value as CardStatus);
+              setSelected(new Set());
+            }}
+            className="cursor-pointer appearance-none rounded-full border-0 bg-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
           >
-            All
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setCategory(cat)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                category === cat
-                  ? "bg-violet-500 text-white shadow-sm"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+            {STATUS_TABS.map((tab) => (
+              <option key={tab.value} value={tab.value}>
+                {tab.label}
+              </option>
+            ))}
+          </select>
 
-          <span className="mx-0.5 h-4 w-px shrink-0 bg-neutral-200 dark:bg-white/10" />
+          {/* Folder pill dropdown */}
+          <select
+            value={category ?? ""}
+            onChange={(e) => setCategory(e.target.value || null)}
+            className="cursor-pointer appearance-none rounded-full border-0 bg-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
+          >
+            <option value="">All folders</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
 
           {/* Refresh */}
           <button
             type="button"
             onClick={() => invalidateAll()}
             title="Refresh"
-            className="shrink-0 rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+            className="rounded-full bg-neutral-100 p-1.5 text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 dark:bg-white/10 dark:text-white/50 dark:hover:bg-white/20 dark:hover:text-white"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
@@ -506,8 +487,8 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           </button>
         </div>
 
-        {/* Drop a link / quick-add */}
-        <div className="mt-3">
+        {/* Drop a link / quick-add — center stage */}
+        <div className="mx-auto mt-6 max-w-lg">
           <CaptureInput ref={captureInputRef} onResult={handleCaptureResult} categories={categories} />
         </div>
 
