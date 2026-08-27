@@ -93,6 +93,8 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   const searchRef = useRef<HTMLInputElement>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [sortBy, setSortBy] = useState<"date" | "alpha" | "color">("date");
+  const [density, setDensity] = useState<"compact" | "comfortable" | "spacious">("comfortable");
   const [category, setCategory] = useState<string | null>(null);
   const [status, setStatus] = useState<CardStatus>("active");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -265,12 +267,32 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     ]);
   };
 
-  const [cards] = api.cards.list.useSuspenseQuery({
+  const [rawCards] = api.cards.list.useSuspenseQuery({
     q: debouncedQuery || undefined,
     category,
     status,
   });
   const [categories] = api.cards.categories.useSuspenseQuery();
+
+  // Sort cards client-side (pinned always first)
+  const cards = React.useMemo(() => {
+    const sorted = [...rawCards];
+    sorted.sort((a, b) => {
+      // Pinned cards always first
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      switch (sortBy) {
+        case "alpha":
+          return a.title.localeCompare(b.title);
+        case "color":
+          return (a.color ?? "zzz").localeCompare(b.color ?? "zzz");
+        case "date":
+        default:
+          return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
+      }
+    });
+    return sorted;
+  }, [rawCards, sortBy]);
 
   const bulkAction = api.cards.bulkAction.useMutation({
     onSuccess: async (_data, variables) => {
@@ -354,6 +376,15 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     onSuccess: async (_data, variables) => {
       await utils.cards.categories.invalidate();
       showNotice(`Folder “${variables.name}” created`);
+    },
+  });
+
+  const [showBulkColor, setShowBulkColor] = useState(false);
+  const bulkSetColor = api.cards.bulkSetColor.useMutation({
+    onSuccess: async () => {
+      await invalidateAll();
+      setSelected(new Set());
+      showNotice("Color updated");
     },
   });
 
@@ -463,6 +494,28 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           </button>
 
           <span className="mx-1 h-4 w-px bg-neutral-200 dark:bg-white/10" />
+
+          {/* Sort */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            aria-label="Sort cards"
+            className="rounded-full border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 outline-none dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white/80 dark:[color-scheme:dark]"
+          >
+            <option value="date">Newest</option>
+            <option value="alpha">A–Z</option>
+            <option value="color">Color</option>
+          </select>
+
+          {/* Density toggle */}
+          <button
+            type="button"
+            onClick={() => setDensity((d) => d === "compact" ? "comfortable" : d === "comfortable" ? "spacious" : "compact")}
+            title={`Density: ${density}`}
+            className="rounded-full px-2 py-1 text-[10px] font-medium text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+          >
+            {density === "compact" ? "◼" : density === "comfortable" ? "◼◼" : "◼◼◼"}
+          </button>
 
           {/* View toggle */}
           <button
@@ -587,6 +640,48 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
               </button>
             </>
           )}
+          {/* Batch color picker */}
+          {status !== "trashed" && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowBulkColor((v) => !v)}
+                title="Change color"
+                className="rounded-full border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 transition hover:bg-neutral-100 dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white/80"
+              >
+                🎨
+              </button>
+              {showBulkColor && (
+                <div className="absolute bottom-full left-0 z-50 mb-2 flex flex-wrap gap-1.5 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-[#252749]">
+                  {[
+                    { name: "Default", border: "border-neutral-200 dark:border-white/10", bg: "bg-white dark:bg-[#1d1f3a]" },
+                    { name: "Coral", border: "border-[#f28b82]", bg: "bg-[#faafa8]" },
+                    { name: "Peach", border: "border-[#fbbc04]", bg: "bg-[#f7bdce]" },
+                    { name: "Sand", border: "border-[#fff475]", bg: "bg-[#fcf4a3]" },
+                    { name: "Mint", border: "border-[#ccff90]", bg: "bg-[#c9f2c7]" },
+                    { name: "Sage", border: "border-[#a8dab5]", bg: "bg-[#c4edb8]" },
+                    { name: "Fog", border: "border-[#aecbfa]", bg: "bg-[#d4e5fc]" },
+                    { name: "Storm", border: "border-[#d7aefb]", bg: "bg-[#d3d5fc]" },
+                    { name: "Dusk", border: "border-[#b39ddb]", bg: "bg-[#e8d5f5]" },
+                    { name: "Blossom", border: "border-[#f48fb1]", bg: "bg-[#fce4ec]" },
+                    { name: "Clay", border: "border-[#d7ccc8]", bg: "bg-[#efebe9]" },
+                    { name: "Chalk", border: "border-[#dadce0]", bg: "bg-[#e8eaed]" },
+                  ].map((c) => (
+                    <button
+                      key={c.name}
+                      type="button"
+                      title={c.name}
+                      onClick={() => {
+                        bulkSetColor.mutate({ ids: selectedIds, color: c.name === "Default" ? null : c.name });
+                        setShowBulkColor(false);
+                      }}
+                      className={`h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 ${c.border} ${c.bg}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setSelected(new Set())}
@@ -601,8 +696,12 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
       <div
         className={
           viewMode === "grid"
-            ? "grid flex-1 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-3"
-            : "flex flex-1 flex-col gap-2 p-4 sm:p-6"
+            ? `grid flex-1 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 ${
+                density === "compact" ? "gap-2 p-3 sm:p-4" : density === "spacious" ? "gap-6 p-6 sm:p-8" : "gap-4 p-4 sm:p-6"
+              }`
+            : `flex flex-1 flex-col ${
+                density === "compact" ? "gap-1 p-3 sm:p-4" : density === "spacious" ? "gap-3 p-6 sm:p-8" : "gap-2 p-4 sm:p-6"
+              }`
         }
         onContextMenu={(e) =>
           openMenu(e, [
@@ -725,7 +824,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                       },
                     ])
                   }
-                  className={`flex w-full flex-col items-start gap-2 rounded-xl border p-4 pr-10 text-left shadow-sm transition hover:border-neutral-300 hover:bg-neutral-100 dark:hover:border-white/30 dark:hover:bg-white/10 ${
+                  className={`flex w-full flex-col items-start gap-2 rounded-xl border pr-10 text-left shadow-sm transition hover:border-neutral-300 hover:bg-neutral-100 dark:hover:border-white/30 dark:hover:bg-white/10 ${density === "compact" ? "p-2 gap-1" : density === "spacious" ? "p-6 gap-3" : "p-4 gap-2"} ${
                     isSelected
                       ? "border-violet-400 bg-violet-500/20"
                       : highlighted

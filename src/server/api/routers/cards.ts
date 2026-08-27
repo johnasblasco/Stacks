@@ -573,6 +573,21 @@ export const cardsRouter = createTRPCRouter({
         .where(and(inArray(cards.id, input.ids), eq(cards.userId, ctx.session.user.id)));
     }),
 
+  /** Bulk set color for multiple cards at once. */
+  bulkSetColor: protectedProcedure
+    .input(
+      z.object({
+        ids: z.array(z.number()).min(1).max(500),
+        color: z.string().max(32).nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(cards)
+        .set({ color: input.color })
+        .where(and(inArray(cards.id, input.ids), eq(cards.userId, ctx.session.user.id)));
+    }),
+
   /** Soft delete / archive: moves a single card between states. */
   delete: protectedProcedure
     .input(
