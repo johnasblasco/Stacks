@@ -24,20 +24,6 @@ export function AppShell() {
     <div className="relative flex h-screen overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-[#15162c] dark:text-white">
       {/* Top-right controls */}
       <div className="absolute right-3 top-3 z-30 flex items-center gap-2">
-        {/* Desktop chat toggle */}
-        <button
-          type="button"
-          onClick={() => setChatOpen((v) => !v)}
-          aria-label="Toggle Ask Stacks"
-          title="Ask Stacks"
-          className={`hidden items-center justify-center rounded-full border px-3 py-1.5 text-xs font-medium transition lg:flex ${
-            chatOpen
-              ? "border-violet-300 bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 dark:border-violet-400/30 dark:text-violet-300 dark:hover:bg-violet-500/20"
-              : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-100 dark:border-white/15 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10"
-          }`}
-        >
-          💬 Ask
-        </button>
         <ThemeToggle />
         <button
           type="button"
@@ -59,9 +45,19 @@ export function AppShell() {
         onExpandHandled={() => setExpandCardId(null)}
       />
 
-      {/* Chat panel — mobile: fullscreen overlay on tap; desktop: always visible sidebar */}
+      {/* Desktop: always-visible chat sidebar */}
+      <div className="hidden w-96 shrink-0 lg:block">
+        <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
+          <ChatPanel
+            onAnswered={(ids) => setHighlightedIds(ids)}
+            onSelectCard={openCard}
+          />
+        </Suspense>
+      </div>
+
+      {/* Mobile: fullscreen chat overlay */}
       {chatOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#111327] lg:relative lg:z-auto lg:h-full lg:w-96 lg:shrink-0 lg:border-r lg:border-neutral-200 lg:shadow-none dark:lg:border-white/10">
+        <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#111327] lg:hidden">
           <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
             <ChatPanel
               onClose={() => setChatOpen(false)}
