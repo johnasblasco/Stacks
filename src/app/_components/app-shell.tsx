@@ -24,14 +24,15 @@ export function AppShell() {
     <div className="relative flex h-screen overflow-hidden bg-neutral-50 text-neutral-900 dark:bg-[#15162c] dark:text-white">
       {/* Top-right controls */}
       <div className="absolute right-3 top-3 z-30 flex items-center gap-2">
+        {/* Desktop chat toggle */}
         <button
           type="button"
-          onClick={() => setChatOpen(true)}
-          aria-label="Open Ask Stacks"
+          onClick={() => setChatOpen((v) => !v)}
+          aria-label="Toggle Ask Stacks"
           title="Ask Stacks"
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 bg-white text-sm transition hover:bg-neutral-100 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 lg:hidden"
+          className="hidden items-center justify-center rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 dark:border-white/15 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10 lg:flex"
         >
-          💬
+          💬 Ask
         </button>
         <ThemeToggle />
         <button
@@ -64,15 +65,21 @@ export function AppShell() {
         onExpandHandled={() => setExpandCardId(null)}
       />
 
-      {/* Chat panel — slide-in drawer below desktop */}
+      {/* Chat panel — mobile: fullscreen overlay; desktop: sidebar toggle */}
       {chatOpen && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
-            onClick={() => setChatOpen(false)}
-            aria-hidden
-          />
-          <div className="fixed inset-y-0 left-0 z-50 w-full max-w-sm shadow-2xl lg:hidden">
+          {/* Mobile: fullscreen overlay */}
+          <div className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-[#111327] lg:hidden">
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
+              <ChatPanel
+                onClose={() => setChatOpen(false)}
+                onAnswered={(ids) => setHighlightedIds(ids)}
+                onSelectCard={openCard}
+              />
+            </Suspense>
+          </div>
+          {/* Desktop: inline slide-in panel */}
+          <div className="fixed inset-y-0 right-0 z-40 hidden w-96 shadow-2xl lg:block">
             <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
               <ChatPanel
                 onClose={() => setChatOpen(false)}
@@ -82,6 +89,18 @@ export function AppShell() {
             </Suspense>
           </div>
         </>
+      )}
+
+      {/* Mobile floating chat FAB */}
+      {!chatOpen && (
+        <button
+          type="button"
+          onClick={() => setChatOpen(true)}
+          aria-label="Open Ask Stacks"
+          className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-violet-500 text-2xl text-white shadow-lg transition hover:bg-violet-600 hover:scale-105 active:scale-95 lg:hidden"
+        >
+          💬
+        </button>
       )}
 
 

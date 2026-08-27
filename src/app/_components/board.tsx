@@ -151,24 +151,28 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     const dx = e.touches[0]!.clientX - touchStartRef.current.x;
     const dy = e.touches[0]!.clientY - touchStartRef.current.y;
     // Only horizontal swipes (ignore vertical scrolling)
-    if (Math.abs(dx) > Math.abs(dy) && dx < 0) {
-      setSwipeX(Math.max(dx, -160));
+    if (Math.abs(dx) > Math.abs(dy)) {
+      setSwipeX(Math.max(-160, Math.min(dx, 160)));
     }
   }, []);
 
   const handleTouchEnd = useCallback(() => {
     if (swipeCardId && swipeX < -100) {
-      // Swipe far enough → trash
+      // Swipe left → trash
       swipeAction.mutate({ ids: [swipeCardId], action: "trash" });
       showUndoNotice("Card moved to trash", {
         ids: [swipeCardId],
         action: "activate",
       });
+    } else if (swipeCardId && swipeX > 100) {
+      // Swipe right → archive
+      swipeAction.mutate({ ids: [swipeCardId], action: "archive" });
+      showNotice("Archived");
     }
     touchStartRef.current = null;
     setSwipeCardId(null);
     setSwipeX(0);
-  }, [swipeCardId, swipeX, swipeAction, showUndoNotice]);
+  }, [swipeCardId, swipeX, swipeAction, showUndoNotice, showNotice]);
 
   // Drag-and-drop reorder
   const [dragId, setDragId] = useState<number | null>(null);
@@ -249,6 +253,41 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     setUndoAction(null);
     if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
   }, [undoAction, bulkAction]);
+
+  // Keyboard shortcuts: j/k (navigate), e (edit), d (trash)
+  const [focusedCardIdx, setFocusedCardIdx] = useState<number>(-1);
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      const isInput = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable;
+      if (isInput) return;
+
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedCardIdx((prev) => Math.min(prev + 1, cards.length - 1));
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedCardIdx((prev) => Math.max(prev - 1, 0));
+      } else if (e.key === "e" || e.key === "Enter") {
+        if (focusedCardIdx >= 0 && focusedCardIdx < cards.length) {
+          e.preventDefault();
+          setExpandedCardId(cards[focusedCardIdx]!.id);
+        }
+      } else if (e.key === "d" || e.key === "Delete") {
+        if (focusedCardIdx >= 0 && focusedCardIdx < cards.length) {
+          e.preventDefault();
+          const id = cards[focusedCardIdx]!.id;
+          bulkAction.mutate({ ids: [id], action: "trash" });
+          showUndoNotice("Card moved to trash", { ids: [id], action: "activate" });
+        }
+      } else if (e.key === "Escape") {
+        setFocusedCardIdx(-1);
+        setExpandedCardId(null);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [cards, focusedCardIdx, bulkAction, showUndoNotice]);
 
   const deleteForever = api.cards.deleteForever.useMutation({
     onSuccess: async () => {
@@ -540,7 +579,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           return (
             <div
               key={card.id}
-              className={`${viewMode === "grid" ? "relative" : "relative flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"} ${swipeCardId === card.id ? "" : "transition-transform"}`}
+              className={`${viewMode === "grid" ? "relative" : "relative flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"} ${swipeCardId === card.id ? "" : "transition-transform"} ${focusedCardIdx >= 0 && cards[focusedCardIdx]?.id === card.id ? "ring-2 ring-violet-400/70" : ""}`}
               style={swipeCardId === card.id ? { transform: `translateX(${swipeX}px)` } : undefined}
               draggable
               onDragStart={() => setDragId(card.id)}
@@ -556,11 +595,19 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
-              {/* Swipe-to-delete trash icon (visible on mobile when swiping) */}
+              {/* Swipe-left → trash indicator */}
               {swipeCardId === card.id && swipeX < -30 && (
                 <div className="absolute right-0 top-0 z-20 flex h-full w-16 items-center justify-center rounded-r-xl bg-red-500/90 text-white transition-opacity">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                </div>
+              )}
+              {/* Swipe-right → archive indicator */}
+              {swipeCardId === card.id && swipeX > 30 && (
+                <div className="absolute left-0 top-0 z-20 flex h-full w-16 items-center justify-center rounded-l-xl bg-blue-500/90 text-white transition-opacity">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" />
                   </svg>
                 </div>
               )}

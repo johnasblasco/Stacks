@@ -143,6 +143,9 @@ export function InlineCardEditor({ card, onClose }: InlineCardEditorProps) {
     }
   };
 
+  // Word count for note
+  const wordCount = note.trim() ? note.trim().split(/\s+/).length : 0;
+
   const selectedColor = NOTE_COLORS.find((c) => c.name === color);
   const cardBg = color && color !== "Default" ? selectedColor?.bg ?? "" : "";
   const cardBorder =
@@ -198,6 +201,12 @@ export function InlineCardEditor({ card, onClose }: InlineCardEditorProps) {
       </div>
 
       {/* Toolbar */}
+      {/* Word count + last edited */}
+      <div className="flex items-center justify-between px-4 pb-0 text-[10px] text-neutral-400 dark:text-white/30">
+        <span>{wordCount > 0 ? `${wordCount} word${wordCount === 1 ? "" : "s"}` : ""}</span>
+        <span>{"edited " + new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(card.savedAt))}</span>
+      </div>
+
       <div className="flex items-center justify-between border-t border-neutral-100 px-3 py-1.5 dark:border-white/5">
         <div className="flex items-center gap-0.5">
           {/* Color picker */}
