@@ -28,6 +28,7 @@ const NOTE_COLORS = [
 export interface CaptureInputProps {
   onResult?: (result: CaptureResult, submittedText: string) => void;
   categories?: string[];
+  defaultCategory?: string | null;
 }
 
 /**
@@ -35,11 +36,14 @@ export interface CaptureInputProps {
  * with title, note body, folder picker, color picker, and a toolbar.
  */
 export const CaptureInput = forwardRef<HTMLInputElement, CaptureInputProps>(
-  function CaptureInput({ onResult, categories = [] }, ref) {
+  function CaptureInput({ onResult, categories = [], defaultCategory }, ref) {
     const [expanded, setExpanded] = useState(false);
     const [title, setTitle] = useState("");
     const [note, setNote] = useState("");
-    const [category, setCategory] = useState("");
+    const [category, setCategory] = useState(() => defaultCategory ?? "");
+    useEffect(() => {
+      setCategory(defaultCategory ?? "");
+    }, [defaultCategory]);
     const [color, setColor] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);

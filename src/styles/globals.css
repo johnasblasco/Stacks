@@ -4,6 +4,40 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+:root {
+  --canvas: #f7f7f8;
+  --canvas-dark: #090b12;
+  --surface: #ffffff;
+  --surface-dark: #121520;
+  --accent: #6d4aff;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: #18181b;
+}
+
+.dark body {
+  background: var(--canvas-dark);
+  color: #fafafa;
+}
+
+@keyframes saved-card-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(139 92 246 / 0);
+  }
+  35% {
+    box-shadow: 0 0 0 7px rgb(139 92 246 / 0.2);
+  }
+}
+
+.saved-card-pulse {
+  animation: saved-card-pulse 1.4s ease-out 2;
 }

@@ -36,6 +36,13 @@
       "when": 1787801000000,
       "tag": "0004_add_card_pinned",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788538196356,
+      "tag": "0005_nebulous_zodiak",
+      "breakpoints": true
     }
   ]
 }

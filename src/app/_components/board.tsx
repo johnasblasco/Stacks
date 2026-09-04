@@ -1,6 +1,12 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import type { inferRouterOutputs } from "@trpc/server";
 
@@ -11,8 +17,8 @@ import { api } from "@/trpc/react";
 import { CaptureInput } from "./capture-input";
 import type { CaptureResult } from "./capture-input";
 import type { ContextMenuItem } from "./context-menu";
+import { FolderSidebar } from "./folder-sidebar";
 import { InlineCardEditor } from "./inline-card-editor";
-
 
 const ContextMenu = React.lazy(() =>
   import("./context-menu").then((m) => ({ default: m.ContextMenu })),
@@ -30,12 +36,6 @@ const NewFolderModal = React.lazy(() =>
 
 export type Card = inferRouterOutputs<AppRouter>["cards"]["list"][number];
 
-const STATUS_TABS: { value: CardStatus; label: string }[] = [
-  { value: "active", label: "Active" },
-  { value: "archived", label: "Archived" },
-  { value: "trashed", label: "Trash" },
-];
-
 /** Highlights matching substrings in text. */
 function HighlightText({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>;
@@ -46,7 +46,10 @@ function HighlightText({ text, query }: { text: string; query: string }) {
     <>
       {parts.map((part, i) =>
         regex.test(part) ? (
-          <mark key={i} className="rounded-sm bg-yellow-200/70 px-0.5 text-inherit dark:bg-yellow-500/30">
+          <mark
+            key={i}
+            className="rounded-sm bg-yellow-200/70 px-0.5 text-inherit dark:bg-yellow-500/30"
+          >
             {part}
           </mark>
         ) : (
@@ -65,17 +68,50 @@ function formatDate(date: Date): string {
 
 /** Maps color name → Tailwind bg/border classes for card tinting. */
 const COLOR_MAP: Record<string, { bg: string; border: string }> = {
-  Coral:   { bg: "bg-[#faafa8] dark:bg-[#3b1c1c]", border: "border-[#f28b82] dark:border-[#a84040]" },
-  Peach:   { bg: "bg-[#f7bdce] dark:bg-[#3b2428]", border: "border-[#fbbc04] dark:border-[#a88030]" },
-  Sand:    { bg: "bg-[#fcf4a3] dark:bg-[#3b3820]", border: "border-[#fff475] dark:border-[#a89840]" },
-  Mint:    { bg: "bg-[#c9f2c7] dark:bg-[#1c3b1c]", border: "border-[#ccff90] dark:border-[#40a840]" },
-  Sage:    { bg: "bg-[#c4edb8] dark:bg-[#1c3320]", border: "border-[#a8dab5] dark:border-[#408a60]" },
-  Fog:     { bg: "bg-[#d4e5fc] dark:bg-[#1c263b]", border: "border-[#aecbfa] dark:border-[#4060a8]" },
-  Storm:   { bg: "bg-[#d3d5fc] dark:bg-[#201c3b]", border: "border-[#d7aefb] dark:border-[#6040a8]" },
-  Dusk:    { bg: "bg-[#e8d5f5] dark:bg-[#2c1c3b]", border: "border-[#b39ddb] dark:border-[#7040a0]" },
-  Blossom: { bg: "bg-[#fce4ec] dark:bg-[#3b1c28]", border: "border-[#f48fb1] dark:border-[#a84060]" },
-  Clay:    { bg: "bg-[#efebe9] dark:bg-[#2a2523]", border: "border-[#d7ccc8] dark:border-[#7a7068]" },
-  Chalk:   { bg: "bg-[#e8eaed] dark:bg-[#252729]", border: "border-[#dadce0] dark:border-[#606468]" },
+  Coral: {
+    bg: "bg-[#faafa8] dark:bg-[#3b1c1c]",
+    border: "border-[#f28b82] dark:border-[#a84040]",
+  },
+  Peach: {
+    bg: "bg-[#f7bdce] dark:bg-[#3b2428]",
+    border: "border-[#fbbc04] dark:border-[#a88030]",
+  },
+  Sand: {
+    bg: "bg-[#fcf4a3] dark:bg-[#3b3820]",
+    border: "border-[#fff475] dark:border-[#a89840]",
+  },
+  Mint: {
+    bg: "bg-[#c9f2c7] dark:bg-[#1c3b1c]",
+    border: "border-[#ccff90] dark:border-[#40a840]",
+  },
+  Sage: {
+    bg: "bg-[#c4edb8] dark:bg-[#1c3320]",
+    border: "border-[#a8dab5] dark:border-[#408a60]",
+  },
+  Fog: {
+    bg: "bg-[#d4e5fc] dark:bg-[#1c263b]",
+    border: "border-[#aecbfa] dark:border-[#4060a8]",
+  },
+  Storm: {
+    bg: "bg-[#d3d5fc] dark:bg-[#201c3b]",
+    border: "border-[#d7aefb] dark:border-[#6040a8]",
+  },
+  Dusk: {
+    bg: "bg-[#e8d5f5] dark:bg-[#2c1c3b]",
+    border: "border-[#b39ddb] dark:border-[#7040a0]",
+  },
+  Blossom: {
+    bg: "bg-[#fce4ec] dark:bg-[#3b1c28]",
+    border: "border-[#f48fb1] dark:border-[#a84060]",
+  },
+  Clay: {
+    bg: "bg-[#efebe9] dark:bg-[#2a2523]",
+    border: "border-[#d7ccc8] dark:border-[#7a7068]",
+  },
+  Chalk: {
+    bg: "bg-[#e8eaed] dark:bg-[#252729]",
+    border: "border-[#dadce0] dark:border-[#606468]",
+  },
 };
 
 interface BoardProps {
@@ -85,7 +121,12 @@ interface BoardProps {
   onExpandHandled?: () => void;
 }
 
-export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHandled }: BoardProps) {
+export function Board({
+  highlightedIds,
+  onSelectCard,
+  expandCardId,
+  onExpandHandled,
+}: BoardProps) {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -94,10 +135,21 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
 
   const [category, setCategory] = useState<string | null>(null);
   const [status, setStatus] = useState<CardStatus>("active");
+  const [recentOnly, setRecentOnly] = useState(false);
+  const [sortMode, setSortMode] = useState<"curated" | "recent">("curated");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [recentlySavedId, setRecentlySavedId] = useState<number | null>(null);
+  const [recentCutoff] = useState(() => Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const recentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [moveTarget, setMoveTarget] = useState<string>("");
   const [notice, setNotice] = useState<string | null>(null);
-  const [undoAction, setUndoAction] = useState<{ ids: number[]; action: string; category?: string } | null>(null);
+  const [undoAction, setUndoAction] = useState<{
+    ids: number[];
+    action: string;
+    category?: string;
+  } | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showNotice = useCallback((msg: string) => {
@@ -110,19 +162,26 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     }, 5000);
   }, []);
 
-  const showUndoNotice = useCallback((msg: string, undo: { ids: number[]; action: string; category?: string }) => {
-    setNotice(msg);
-    setUndoAction(undo);
-    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
-    noticeTimerRef.current = setTimeout(() => {
-      setNotice(null);
-      setUndoAction(null);
-    }, 6000);
-  }, []);
+  const showUndoNotice = useCallback(
+    (
+      msg: string,
+      undo: { ids: number[]; action: string; category?: string },
+    ) => {
+      setNotice(msg);
+      setUndoAction(undo);
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = setTimeout(() => {
+        setNotice(null);
+        setUndoAction(null);
+      }, 6000);
+    },
+    [],
+  );
 
   useEffect(() => {
     return () => {
       if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+      if (recentTimerRef.current) clearTimeout(recentTimerRef.current);
     };
   }, []);
 
@@ -132,7 +191,8 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     debounceRef.current = setTimeout(() => {
       setDebouncedQuery(value);
     }, 250);
-  }, []);  useEffect(() => {
+  }, []);
+  useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
@@ -143,7 +203,10 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
-      const isInput = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable;
+      const isInput =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        (e.target as HTMLElement).isContentEditable;
 
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
@@ -182,11 +245,17 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     },
   });
 
-  const handleTouchStart = useCallback((e: React.TouchEvent, cardId: number) => {
-    touchStartRef.current = { x: e.touches[0]!.clientX, y: e.touches[0]!.clientY };
-    setSwipeCardId(cardId);
-    setSwipeX(0);
-  }, []);
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent, cardId: number) => {
+      touchStartRef.current = {
+        x: e.touches[0]!.clientX,
+        y: e.touches[0]!.clientY,
+      };
+      setSwipeCardId(cardId);
+      setSwipeX(0);
+    },
+    [],
+  );
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!touchStartRef.current) return;
@@ -202,14 +271,22 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     // Haptic feedback on threshold crossing
     if (swipeCardId) {
       if (swipeX < -100) {
-        try { navigator.vibrate?.(20); } catch { /* no-op */ }
+        try {
+          navigator.vibrate?.(20);
+        } catch {
+          /* no-op */
+        }
         swipeAction.mutate({ ids: [swipeCardId], action: "trash" });
         showUndoNotice("Card moved to trash", {
           ids: [swipeCardId],
           action: "activate",
         });
       } else if (swipeX > 100) {
-        try { navigator.vibrate?.(20); } catch { /* no-op */ }
+        try {
+          navigator.vibrate?.(20);
+        } catch {
+          /* no-op */
+        }
         swipeAction.mutate({ ids: [swipeCardId], action: "archive" });
         showUndoNotice("Archived", {
           ids: [swipeCardId],
@@ -244,11 +321,13 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   // Handle external expand request (e.g. from chat panel card reference)
   useEffect(() => {
     if (expandCardId != null) {
+      setStatus("active");
+      setCategory(null);
+      setRecentOnly(false);
       setExpandedCardId(expandCardId);
       onExpandHandled?.();
     }
   }, [expandCardId, onExpandHandled]);
-
 
   const openMenu = (e: React.MouseEvent, items: ContextMenuItem[]) => {
     e.preventDefault();
@@ -265,23 +344,37 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
     ]);
   };
 
-  const [rawCards] = api.cards.list.useSuspenseQuery({
-    q: debouncedQuery || undefined,
-    category,
-    status,
+  const [rawCards] = api.cards.list.useSuspenseQuery(
+    {
+      q: debouncedQuery || undefined,
+      category,
+      status,
+    },
+    {
+      placeholderData: (previousData) => previousData ?? [],
+    },
+  );
+  const [categories] = api.cards.categories.useSuspenseQuery(null, {
+    staleTime: 5 * 60 * 1000, // folders don't change often
   });
-  const [categories] = api.cards.categories.useSuspenseQuery();
 
-  // Cards sorted by pinned first, then by date
+  // Curated keeps pins first; recent mode is strictly newest-first.
   const cards = React.useMemo(() => {
-    const sorted = [...rawCards];
+    const visible = recentOnly
+      ? rawCards.filter(
+          (card) => new Date(card.savedAt).getTime() >= recentCutoff,
+        )
+      : rawCards;
+    const sorted = [...visible];
     sorted.sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
+      if (sortMode === "curated") {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+      }
       return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
     });
     return sorted;
-  }, [rawCards]);
+  }, [rawCards, recentCutoff, recentOnly, sortMode]);
 
   const bulkAction = api.cards.bulkAction.useMutation({
     onSuccess: async (_data, variables) => {
@@ -302,8 +395,11 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           activate: "Restored",
           move: `Moved to ${variables.category}`,
         };
-        showNotice(`${labels[variables.action] ?? variables.action} (${variables.ids.length} card${variables.ids.length === 1 ? "" : "s"})`);
-      }      },
+        showNotice(
+          `${labels[variables.action] ?? variables.action} (${variables.ids.length} card${variables.ids.length === 1 ? "" : "s"})`,
+        );
+      }
+    },
   });
 
   const handleUndo = useCallback(() => {
@@ -323,7 +419,10 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
-      const isInput = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable;
+      const isInput =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        (e.target as HTMLElement).isContentEditable;
       if (isInput) return;
 
       if (e.key === "j" || e.key === "ArrowDown") {
@@ -342,7 +441,10 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
           e.preventDefault();
           const id = cards[focusedCardIdx]!.id;
           bulkAction.mutate({ ids: [id], action: "trash" });
-          showUndoNotice("Card moved to trash", { ids: [id], action: "activate" });
+          showUndoNotice("Card moved to trash", {
+            ids: [id],
+            action: "activate",
+          });
         }
       } else if (e.key === "Escape") {
         setFocusedCardIdx(-1);
@@ -377,8 +479,23 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
   });
 
   const handleCaptureResult = (result: CaptureResult) => {
-    if (result.kind === "saved") showNotice(result.message);
-    else if (result.kind === "duplicate") showNotice(result.message);
+    if (result.kind === "saved") {
+      showNotice(result.message);
+      setStatus("active");
+      // Stay in the current folder after save — don't reset category
+      setRecentOnly(false);
+      setSortMode("recent");
+      setQuery("");
+      setDebouncedQuery("");
+      setRecentlySavedId(result.cardId);
+      if (recentTimerRef.current) clearTimeout(recentTimerRef.current);
+      recentTimerRef.current = setTimeout(() => setRecentlySavedId(null), 6000);
+      setTimeout(() => {
+        document
+          .querySelector(`[data-card-id="${result.cardId}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 150);
+    } else if (result.kind === "duplicate") showNotice(result.message);
     else if (result.kind === "rejected") showNotice(result.reason);
   };
 
@@ -393,332 +510,520 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
 
   const selectedIds = Array.from(selected);
 
+  const selectSystemView = (nextStatus: CardStatus) => {
+    setStatus(nextStatus);
+    setCategory(null);
+    setRecentOnly(false);
+    setSelected(new Set());
+    setMobileNavOpen(false);
+  };
+
+  const selectFolder = (folder: string) => {
+    setStatus("active");
+    setCategory(folder);
+    setRecentOnly(false);
+    setSelected(new Set());
+    setMobileNavOpen(false);
+  };
+
+  const selectRecent = () => {
+    setStatus("active");
+    setCategory(null);
+    setRecentOnly(true);
+    setSortMode("recent");
+    setSelected(new Set());
+    setMobileNavOpen(false);
+  };
+
+  const expandedCard = cards.find((card) => card.id === expandedCardId);
+
   return (
-    <section className="flex h-full flex-1 flex-col overflow-y-auto">
-      {/* Quick-add */}
-      <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white/90 px-4 py-4 backdrop-blur dark:border-white/10 dark:bg-[#15162c]/90 sm:px-6">
-        {/* Search bar + 3 buttons on the same row */}
-        <div className="flex items-center gap-2">
-          {/* Search — takes remaining space */}
-          <div className="relative flex-1">
-            <svg
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-white/40"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="m21 21-5.2-5.2M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
-              />
-            </svg>
-            <input
-              ref={searchRef}
-              type="text"
-              value={query}
-              onChange={(e) => handleQueryChange(e.target.value)}
-              placeholder="Search everything…  ⌘K"
-              className="w-full rounded-full border border-neutral-300 bg-white py-2 pl-10 pr-4 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/40 dark:focus:border-violet-400 dark:focus:ring-violet-400/20"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => handleQueryChange("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-white/40 dark:hover:text-white/70"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-          
-           {/* Refresh */}
-          <button
-            type="button"
-            onClick={() => invalidateAll()}
-            title="Refresh"
-            className="shrink-0 rounded-full bg-neutral-100 p-2 text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 dark:bg-white/10 dark:text-white/50 dark:hover:bg-white/20 dark:hover:text-white"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
-          </button>
-
-          {/* Status pill dropdown */}
-          <select
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as CardStatus);
-              setSelected(new Set());
-            }}
-            className="shrink-0 cursor-pointer appearance-none rounded-xl border-0 bg-neutral-100 px-3 py-2 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
-          >
-            {STATUS_TABS.map((tab) => (
-              <option key={tab.value} value={tab.value}>
-                {tab.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Folder pill dropdown */}
-          <select
-            value={category ?? ""}
-            onChange={(e) => setCategory(e.target.value || null)}
-            className="shrink-0 cursor-pointer appearance-none rounded-xl border-0 bg-neutral-100 px-3 py-2 text-xs font-medium text-neutral-700 outline-none transition hover:bg-neutral-200 focus:ring-2 focus:ring-violet-400/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/20 dark:[color-scheme:dark]"
-          >
-            <option value="">All folders</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Drop a link / quick-add — center stage */}
-        <div className="mx-auto mt-5 max-w-lg">
-          <CaptureInput ref={captureInputRef} onResult={handleCaptureResult} categories={categories} />
-        </div>
-
-        {notice && (
-          <div className="mt-2 flex items-center gap-2 rounded-lg bg-violet-500/15 px-3 py-1.5 text-xs text-violet-800 dark:text-violet-200">
-            <span className="truncate flex-1">{notice}</span>
-            {undoAction && (
-              <button
-                type="button"
-                onClick={handleUndo}
-                className="shrink-0 font-semibold underline transition hover:text-violet-600 dark:hover:text-white"
-              >
-                Undo
-              </button>
-            )}
-          </div>
-        )}
+    <section className="flex h-full min-w-0 flex-1 overflow-hidden bg-[var(--canvas)] dark:bg-[var(--canvas-dark)]">
+      <div className="hidden h-full md:block">
+        <FolderSidebar
+          categories={categories}
+          category={category}
+          status={status}
+          recentOnly={recentOnly}
+          onSelectSystem={selectSystemView}
+          onSelectFolder={selectFolder}
+          onSelectRecent={selectRecent}
+          onNewFolder={() => setNewFolderModal(true)}
+        />
       </div>
 
-      {/* Bulk action bar */}
-      {selectedIds.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-violet-400/30 bg-violet-500/10 px-6 py-3 text-sm">
-          <span className="font-semibold text-violet-800 dark:text-violet-200">
-            {selectedIds.length} selected
-          </span>
-          {status === "trashed" ? (
-            <>
+      {mobileNavOpen && (
+        <div
+          className="fixed inset-0 z-40 flex bg-black/45 backdrop-blur-sm md:hidden"
+          onClick={() => setMobileNavOpen(false)}
+        >
+          <div className="h-full" onClick={(event) => event.stopPropagation()}>
+            <FolderSidebar
+              categories={categories}
+              category={category}
+              status={status}
+              recentOnly={recentOnly}
+              onSelectSystem={selectSystemView}
+              onSelectFolder={selectFolder}
+              onSelectRecent={selectRecent}
+              onNewFolder={() => {
+                setMobileNavOpen(false);
+                setNewFolderModal(true);
+              }}
+              onClose={() => setMobileNavOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        {/* Quick-add */}
+        <div className="sticky top-0 z-30 border-b border-neutral-200/80 bg-white/85 px-4 py-4 backdrop-blur-xl sm:px-6 dark:border-white/10 dark:bg-[#11131f]/90">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
               <button
                 type="button"
-                onClick={() => bulkAction.mutate({ ids: selectedIds, action: "activate" })}
-                disabled={bulkAction.isPending}
-                className="rounded-full bg-neutral-200 px-3 py-1 transition hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20"
+                onClick={() => setMobileNavOpen(true)}
+                aria-label="Open folder navigation"
+                className="rounded-xl border border-neutral-200 bg-white p-2 text-neutral-600 shadow-sm md:hidden dark:border-white/10 dark:bg-white/5 dark:text-white/70"
               >
-                Restore
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(`Permanently delete ${selectedIds.length} card(s)?`))
-                    deleteForever.mutate({ ids: selectedIds });
-                }}
-                disabled={deleteForever.isPending}
-                className="rounded-full bg-red-500/80 px-3 py-1 font-semibold transition hover:bg-red-500"
-              >
-                Delete forever
-              </button>
-            </>
-          ) : (
-            <>
+              <div className="min-w-0">
+                <h1 className="truncate text-base font-bold tracking-tight text-neutral-950 dark:text-white">
+                  {recentOnly
+                    ? "Recently saved"
+                    : (category ??
+                      (status === "active"
+                        ? "All notes"
+                        : status === "archived"
+                          ? "Archived"
+                          : "Trash"))}
+                </h1>
+                <p className="text-[11px] text-neutral-400 dark:text-white/35">
+                  {cards.length} {cards.length === 1 ? "card" : "cards"}
+                </p>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-[11px] font-medium text-neutral-500 dark:text-white/45">
+              <span className="hidden sm:inline">Sort</span>
               <select
-                value={moveTarget}
-                onChange={(e) => setMoveTarget(e.target.value)}
-                className="rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs text-neutral-900 outline-none dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white dark:[color-scheme:dark]"
+                value={sortMode}
+                onChange={(event) =>
+                  setSortMode(event.target.value as "curated" | "recent")
+                }
+                className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:[color-scheme:dark]"
               >
-                <option value="">Move to folder…</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
+                <option value="curated">Pinned first</option>
+                <option value="recent">Recently added</option>
               </select>
-              {moveTarget && (
+            </label>
+          </div>
+          {/* Search bar + 3 buttons on the same row */}
+          <div className="flex items-center gap-2">
+            {/* Search — takes remaining space */}
+            <div className="relative flex-1">
+              <svg
+                className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-white/40"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="m21 21-5.2-5.2M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+                />
+              </svg>
+              <input
+                ref={searchRef}
+                type="text"
+                value={query}
+                onChange={(e) => handleQueryChange(e.target.value)}
+                placeholder="Search everything…  ⌘K"
+                className="w-full rounded-2xl border border-neutral-200 bg-white py-2.5 pr-9 pl-10 text-sm text-neutral-900 shadow-sm outline-none placeholder:text-neutral-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-400/15 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/35"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => handleQueryChange("")}
+                  className="absolute top-1/2 right-3 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-white/40 dark:hover:text-white/70"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Refresh */}
+            <button
+              type="button"
+              onClick={() => invalidateAll()}
+              title="Refresh"
+              className="shrink-0 rounded-full bg-neutral-100 p-2 text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-700 dark:bg-white/10 dark:text-white/50 dark:hover:bg-white/20 dark:hover:text-white"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Drop a link / quick-add — center stage */}
+          <div className="mx-auto mt-4 max-w-2xl">
+            <CaptureInput
+              ref={captureInputRef}
+              onResult={handleCaptureResult}
+              categories={categories}
+              defaultCategory={category}
+            />
+          </div>
+
+          {notice && (
+            <div className="mt-2 flex items-center gap-2 rounded-lg bg-violet-500/15 px-3 py-1.5 text-xs text-violet-800 dark:text-violet-200">
+              <span className="flex-1 truncate">{notice}</span>
+              {undoAction && (
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  className="shrink-0 font-semibold underline transition hover:text-violet-600 dark:hover:text-white"
+                >
+                  Undo
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Bulk action bar */}
+        {selectedIds.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-violet-400/30 bg-violet-500/10 px-6 py-3 text-sm">
+            <span className="font-semibold text-violet-800 dark:text-violet-200">
+              {selectedIds.length} selected
+            </span>
+            {status === "trashed" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    bulkAction.mutate({ ids: selectedIds, action: "activate" })
+                  }
+                  disabled={bulkAction.isPending}
+                  className="rounded-full bg-neutral-200 px-3 py-1 transition hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20"
+                >
+                  Restore
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `Permanently delete ${selectedIds.length} card(s)?`,
+                      )
+                    )
+                      deleteForever.mutate({ ids: selectedIds });
+                  }}
+                  disabled={deleteForever.isPending}
+                  className="rounded-full bg-red-500/80 px-3 py-1 font-semibold transition hover:bg-red-500"
+                >
+                  Delete forever
+                </button>
+              </>
+            ) : (
+              <>
+                <select
+                  value={moveTarget}
+                  onChange={(e) => setMoveTarget(e.target.value)}
+                  className="rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs text-neutral-900 outline-none dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white dark:[color-scheme:dark]"
+                >
+                  <option value="">Move to folder…</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+                {moveTarget && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      bulkAction.mutate({
+                        ids: selectedIds,
+                        action: "move",
+                        category: moveTarget,
+                      })
+                    }
+                    disabled={bulkAction.isPending}
+                    className="rounded-full bg-neutral-200 px-3 py-1 transition hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20"
+                  >
+                    Move
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() =>
                     bulkAction.mutate({
                       ids: selectedIds,
-                      action: "move",
-                      category: moveTarget,
+                      action: status === "archived" ? "activate" : "archive",
                     })
                   }
                   disabled={bulkAction.isPending}
                   className="rounded-full bg-neutral-200 px-3 py-1 transition hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20"
                 >
-                  Move
+                  {status === "archived" ? "Unarchive" : "Archive"}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() =>
-                  bulkAction.mutate({
-                    ids: selectedIds,
-                    action: status === "archived" ? "activate" : "archive",
-                  })
-                }
-                disabled={bulkAction.isPending}
-                className="rounded-full bg-neutral-200 px-3 py-1 transition hover:bg-neutral-300 dark:bg-white/10 dark:hover:bg-white/20"
-              >
-                {status === "archived" ? "Unarchive" : "Archive"}
-              </button>
-              <button
-                type="button"
-                onClick={() => bulkAction.mutate({ ids: selectedIds, action: "trash" })}
-                disabled={bulkAction.isPending}
-                className="rounded-full bg-red-500/80 px-3 py-1 font-semibold transition hover:bg-red-500"
-              >
-                Trash
-              </button>
-            </>
-          )}
-          {/* Batch color picker */}
-          {status !== "trashed" && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowBulkColor((v) => !v)}
-                title="Change color"
-                className="rounded-full border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 transition hover:bg-neutral-100 dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white/80"
-              >
-                🎨
-              </button>
-              {showBulkColor && (
-                <div className="absolute bottom-full left-0 z-50 mb-2 flex flex-wrap gap-1.5 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-[#252749]">
-                  {[
-                    { name: "Default", border: "border-neutral-200 dark:border-white/10", bg: "bg-white dark:bg-[#1d1f3a]" },
-                    { name: "Coral",   border: "border-[#f28b82] dark:border-[#a84040]", bg: "bg-[#faafa8] dark:bg-[#3b1c1c]" },
-                    { name: "Peach",   border: "border-[#fbbc04] dark:border-[#a88030]", bg: "bg-[#f7bdce] dark:bg-[#3b2428]" },
-                    { name: "Sand",    border: "border-[#fff475] dark:border-[#a89840]", bg: "bg-[#fcf4a3] dark:bg-[#3b3820]" },
-                    { name: "Mint",    border: "border-[#ccff90] dark:border-[#40a840]", bg: "bg-[#c9f2c7] dark:bg-[#1c3b1c]" },
-                    { name: "Sage",    border: "border-[#a8dab5] dark:border-[#408a60]", bg: "bg-[#c4edb8] dark:bg-[#1c3320]" },
-                    { name: "Fog",     border: "border-[#aecbfa] dark:border-[#4060a8]", bg: "bg-[#d4e5fc] dark:bg-[#1c263b]" },
-                    { name: "Storm",   border: "border-[#d7aefb] dark:border-[#6040a8]", bg: "bg-[#d3d5fc] dark:bg-[#201c3b]" },
-                    { name: "Dusk",    border: "border-[#b39ddb] dark:border-[#7040a0]", bg: "bg-[#e8d5f5] dark:bg-[#2c1c3b]" },
-                    { name: "Blossom", border: "border-[#f48fb1] dark:border-[#a84060]", bg: "bg-[#fce4ec] dark:bg-[#3b1c28]" },
-                    { name: "Clay",    border: "border-[#d7ccc8] dark:border-[#7a7068]", bg: "bg-[#efebe9] dark:bg-[#2a2523]" },
-                    { name: "Chalk",   border: "border-[#dadce0] dark:border-[#606468]", bg: "bg-[#e8eaed] dark:bg-[#252729]" },
-                  ].map((c) => (
-                    <button
-                      key={c.name}
-                      type="button"
-                      title={c.name}
-                      onClick={() => {
-                        bulkSetColor.mutate({ ids: selectedIds, color: c.name === "Default" ? null : c.name });
-                        setShowBulkColor(false);
-                      }}
-                      className={`h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 ${c.border} ${c.bg}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => setSelected(new Set())}
-            className="text-xs text-neutral-400 hover:text-neutral-700 dark:text-white/40 dark:hover:text-white"
-          >
-            Clear selection
-          </button>
-        </div>
-      )}
-
-      {/* Card grid / list — right-click empty space for new note/folder */}
-      <div
-        className="grid flex-1 grid-cols-1 gap-6 p-6 sm:grid-cols-2 sm:p-8 xl:grid-cols-3"
-        onContextMenu={(e) =>
-          openMenu(e, [
-            {
-              label: "New note…",
-              onSelect: () => setNewCard({}),
-            },
-            {
-              label: "New folder…",
-              onSelect: () => setNewFolderModal(true),
-            },
-          ])
-        }
-      >
-        {cards.length === 0 && (
-          <p className="col-span-full mt-12 text-center text-neutral-400 dark:text-white/40">
-            {status === "active"
-              ? "Nothing here yet — drop something above, or right-click to create a note or folder."
-              : `No ${status} cards.`}
-          </p>
-        )}
-        {cards.map((card) => {
-          const highlighted = highlightedIds.includes(card.id);
-          const isSelected = selected.has(card.id);
-          const colorDef = card.color ? COLOR_MAP[card.color] : null;
-          const isPinned = card.pinned;
-          return (
-            <div
-              key={card.id}
-              className={`relative ${swipeCardId === card.id ? "" : "transition-transform"} ${focusedCardIdx >= 0 && cards[focusedCardIdx]?.id === card.id ? "ring-2 ring-violet-400/70" : ""}`}
-              style={swipeCardId === card.id ? { transform: `translateX(${swipeX}px)` } : undefined}
-              draggable
-              onDragStart={() => setDragId(card.id)}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => {
-                if (dragId && dragId !== card.id) {
-                  reorderCard.mutate({ fromId: dragId, toId: card.id });
-                }
-                setDragId(null);
-              }}
-              onDragEnd={() => setDragId(null)}
-              onTouchStart={(e) => handleTouchStart(e, card.id)}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
+                <button
+                  type="button"
+                  onClick={() =>
+                    bulkAction.mutate({ ids: selectedIds, action: "trash" })
+                  }
+                  disabled={bulkAction.isPending}
+                  className="rounded-full bg-red-500/80 px-3 py-1 font-semibold transition hover:bg-red-500"
+                >
+                  Trash
+                </button>
+              </>
+            )}
+            {/* Batch color picker */}
+            {status !== "trashed" && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkColor((v) => !v)}
+                  title="Change color"
+                  className="rounded-full border border-neutral-300 bg-white px-2 py-1 text-xs text-neutral-700 transition hover:bg-neutral-100 dark:border-white/10 dark:bg-[#1d1f3a] dark:text-white/80"
+                >
+                  🎨
+                </button>
+                {showBulkColor && (
+                  <div className="absolute bottom-full left-0 z-50 mb-2 flex flex-wrap gap-1.5 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-[#252749]">
+                    {[
+                      {
+                        name: "Default",
+                        border: "border-neutral-200 dark:border-white/10",
+                        bg: "bg-white dark:bg-[#1d1f3a]",
+                      },
+                      {
+                        name: "Coral",
+                        border: "border-[#f28b82] dark:border-[#a84040]",
+                        bg: "bg-[#faafa8] dark:bg-[#3b1c1c]",
+                      },
+                      {
+                        name: "Peach",
+                        border: "border-[#fbbc04] dark:border-[#a88030]",
+                        bg: "bg-[#f7bdce] dark:bg-[#3b2428]",
+                      },
+                      {
+                        name: "Sand",
+                        border: "border-[#fff475] dark:border-[#a89840]",
+                        bg: "bg-[#fcf4a3] dark:bg-[#3b3820]",
+                      },
+                      {
+                        name: "Mint",
+                        border: "border-[#ccff90] dark:border-[#40a840]",
+                        bg: "bg-[#c9f2c7] dark:bg-[#1c3b1c]",
+                      },
+                      {
+                        name: "Sage",
+                        border: "border-[#a8dab5] dark:border-[#408a60]",
+                        bg: "bg-[#c4edb8] dark:bg-[#1c3320]",
+                      },
+                      {
+                        name: "Fog",
+                        border: "border-[#aecbfa] dark:border-[#4060a8]",
+                        bg: "bg-[#d4e5fc] dark:bg-[#1c263b]",
+                      },
+                      {
+                        name: "Storm",
+                        border: "border-[#d7aefb] dark:border-[#6040a8]",
+                        bg: "bg-[#d3d5fc] dark:bg-[#201c3b]",
+                      },
+                      {
+                        name: "Dusk",
+                        border: "border-[#b39ddb] dark:border-[#7040a0]",
+                        bg: "bg-[#e8d5f5] dark:bg-[#2c1c3b]",
+                      },
+                      {
+                        name: "Blossom",
+                        border: "border-[#f48fb1] dark:border-[#a84060]",
+                        bg: "bg-[#fce4ec] dark:bg-[#3b1c28]",
+                      },
+                      {
+                        name: "Clay",
+                        border: "border-[#d7ccc8] dark:border-[#7a7068]",
+                        bg: "bg-[#efebe9] dark:bg-[#2a2523]",
+                      },
+                      {
+                        name: "Chalk",
+                        border: "border-[#dadce0] dark:border-[#606468]",
+                        bg: "bg-[#e8eaed] dark:bg-[#252729]",
+                      },
+                    ].map((c) => (
+                      <button
+                        key={c.name}
+                        type="button"
+                        title={c.name}
+                        onClick={() => {
+                          bulkSetColor.mutate({
+                            ids: selectedIds,
+                            color: c.name === "Default" ? null : c.name,
+                          });
+                          setShowBulkColor(false);
+                        }}
+                        className={`h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 ${c.border} ${c.bg}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="text-xs text-neutral-400 hover:text-neutral-700 dark:text-white/40 dark:hover:text-white"
             >
-              {/* Swipe-left → trash indicator */}
-              {swipeCardId === card.id && swipeX < -30 && (
-                <div className="absolute right-0 top-0 z-20 flex h-full w-16 items-center justify-center rounded-r-xl bg-red-500/90 text-white transition-opacity">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                </div>
-              )}
-              {/* Swipe-right → archive indicator */}
-              {swipeCardId === card.id && swipeX > 30 && (
-                <div className="absolute left-0 top-0 z-20 flex h-full w-16 items-center justify-center rounded-l-xl bg-blue-500/90 text-white transition-opacity">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" />
-                  </svg>
-                </div>
-              )}
-              {/* Multi-select checkbox */}
-              <button
-                type="button"
-                aria-label={isSelected ? "Deselect card" : "Select card"}
-                onClick={() => toggleSelect(card.id)}
-                className={`absolute right-3 top-3 z-10 h-5 w-5 rounded-md border text-[11px] leading-none transition ${
-                  isSelected
-                    ? "border-violet-400 bg-violet-500 text-white"
-                    : "border-neutral-300 bg-white/70 text-transparent hover:border-neutral-500 dark:border-white/25 dark:bg-black/20 dark:hover:border-white/60"
-                }`}
+              Clear selection
+            </button>
+          </div>
+        )}
+
+        {/* Card grid / list — right-click empty space for new note/folder */}
+        <div
+          className="grid flex-1 grid-cols-1 content-start gap-4 p-4 sm:grid-cols-2 sm:p-6 2xl:grid-cols-3"
+          onContextMenu={(e) =>
+            openMenu(e, [
+              {
+                label: "New note…",
+                onSelect: () => setNewCard({}),
+              },
+              {
+                label: "New folder…",
+                onSelect: () => setNewFolderModal(true),
+              },
+            ])
+          }
+        >
+          {cards.length === 0 && (
+            <p className="col-span-full mt-12 text-center text-neutral-400 dark:text-white/40">
+              {recentOnly
+                ? "No cards were saved in the last seven days."
+                : status === "active"
+                  ? "Nothing here yet — drop something above, or right-click to create a note or folder."
+                  : `No ${status} cards.`}
+            </p>
+          )}
+          {cards.map((card) => {
+            const highlighted = highlightedIds.includes(card.id);
+            const isSelected = selected.has(card.id);
+            const colorDef = card.color ? COLOR_MAP[card.color] : null;
+            const isPinned = card.pinned;
+            return (
+              <div
+                key={card.id}
+                data-card-id={card.id}
+                className={`relative ${swipeCardId === card.id ? "" : "transition-transform"} ${focusedCardIdx >= 0 && cards[focusedCardIdx]?.id === card.id ? "ring-2 ring-violet-400/70" : ""} ${recentlySavedId === card.id ? "saved-card-pulse rounded-2xl ring-2 ring-violet-500" : ""}`}
+                style={
+                  swipeCardId === card.id
+                    ? { transform: `translateX(${swipeX}px)` }
+                    : undefined
+                }
+                draggable
+                onDragStart={() => setDragId(card.id)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (dragId && dragId !== card.id) {
+                    reorderCard.mutate({ fromId: dragId, toId: card.id });
+                  }
+                  setDragId(null);
+                }}
+                onDragEnd={() => setDragId(null)}
+                onTouchStart={(e) => handleTouchStart(e, card.id)}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
               >
-                ✓
-              </button>
-              {/* Pin indicator */}
-              {isPinned && (
-                <span className="absolute left-3 top-3 z-10 text-xs" title="Pinned">
-                  📌
-                </span>
-              )}
-              {expandedCardId === card.id ? (
-                <InlineCardEditor
-                  card={card}
-                  onClose={() => setExpandedCardId(null)}
-                />
-              ) : (
+                {/* Swipe-left → trash indicator */}
+                {swipeCardId === card.id && swipeX < -30 && (
+                  <div className="absolute top-0 right-0 z-20 flex h-full w-16 items-center justify-center rounded-r-xl bg-red-500/90 text-white transition-opacity">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                  </div>
+                )}
+                {/* Swipe-right → archive indicator */}
+                {swipeCardId === card.id && swipeX > 30 && (
+                  <div className="absolute top-0 left-0 z-20 flex h-full w-16 items-center justify-center rounded-l-xl bg-blue-500/90 text-white transition-opacity">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="21 8 21 21 3 21 3 8" />
+                      <rect x="1" y="3" width="22" height="5" />
+                      <line x1="10" y1="12" x2="14" y2="12" />
+                    </svg>
+                  </div>
+                )}
+                {/* Multi-select checkbox */}
+                <button
+                  type="button"
+                  aria-label={isSelected ? "Deselect card" : "Select card"}
+                  onClick={() => toggleSelect(card.id)}
+                  className={`absolute top-3 right-3 z-10 h-5 w-5 rounded-md border text-[11px] leading-none transition ${
+                    isSelected
+                      ? "border-violet-400 bg-violet-500 text-white"
+                      : "border-neutral-300 bg-white/70 text-transparent hover:border-neutral-500 dark:border-white/25 dark:bg-black/20 dark:hover:border-white/60"
+                  }`}
+                >
+                  ✓
+                </button>
+                {/* Pin indicator */}
+                {isPinned && (
+                  <span
+                    className="absolute top-3 left-3 z-10 text-xs"
+                    title="Pinned"
+                  >
+                    📌
+                  </span>
+                )}
+                {recentlySavedId === card.id && (
+                  <span className="absolute bottom-3 left-3 z-10 rounded-full bg-violet-600 px-2.5 py-1 text-[10px] font-bold tracking-wide text-white uppercase shadow-lg">
+                    Just now
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => setExpandedCardId(card.id)}
@@ -751,18 +1056,21 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                       {
                         label: "Move to trash",
                         onSelect: () =>
-                          bulkAction.mutate({ ids: [card.id], action: "trash" }),
+                          bulkAction.mutate({
+                            ids: [card.id],
+                            action: "trash",
+                          }),
                       },
                     ])
                   }
-                  className={`flex w-full flex-col items-start gap-3 overflow-hidden rounded-xl border p-6 pr-10 text-left shadow-sm transition hover:border-neutral-300 hover:bg-neutral-100 dark:hover:border-white/30 dark:hover:bg-white/10 ${
+                  className={`group flex min-h-52 w-full flex-col items-start gap-3 overflow-hidden rounded-2xl border p-5 pr-10 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-lg dark:hover:border-white/20 ${
                     isSelected
                       ? "border-violet-400 bg-violet-500/20"
                       : highlighted
                         ? "border-violet-400 bg-violet-500/10 ring-2 ring-violet-400/60"
                         : colorDef
                           ? `${colorDef.bg} ${colorDef.border} border-2`
-                          : "border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5"
+                          : "border-neutral-200/90 bg-white dark:border-white/10 dark:bg-[#151823]"
                   }`}
                 >
                   {/* Folder label — click to open the folder container */}
@@ -780,7 +1088,7 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                         setFolderModal(card.category);
                       }
                     }}
-                    className="text-xs uppercase tracking-wide text-violet-600 underline-offset-2 hover:underline dark:text-violet-300"
+                    className="text-xs tracking-wide text-violet-600 uppercase underline-offset-2 hover:underline dark:text-violet-300"
                   >
                     {card.category}
                   </span>
@@ -799,101 +1107,128 @@ export function Board({ highlightedIds, onSelectCard, expandCardId, onExpandHand
                     </span>
                   </div>
                 </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Right-click menu */}
-      {menu && (
-        <Suspense fallback={null}>
-          <ContextMenu
-            x={menu.x}
-            y={menu.y}
-            items={menu.items}
-            onClose={() => setMenu(null)}
-          />
-        </Suspense>
-      )}
-
-      {/* Manual creation dialog */}
-      {newCard && (
-        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
-          <NewCardModal
-            existingCategories={categories}
-            initialCategory={newCard.category}
-            onClose={() => setNewCard(null)}
-          />
-        </Suspense>
-      )}
-
-      {/* Folder container view */}
-      {folderModal && (
-        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
-          <FolderModal
-            folder={folderModal}
-            onClose={() => setFolderModal(null)}
-            onSelectCard={(id) => onSelectCard(id)}
-          />
-        </Suspense>
-      )}
-
-      {/* Shortcut cheat sheet */}
-      {showShortcuts && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowShortcuts(false)}
-          onKeyDown={(e) => e.key === "Escape" && setShowShortcuts(false)}
-          role="dialog"
-          aria-label="Keyboard shortcuts"
-        >
-          <div
-            className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#1d1f3a]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">Keyboard Shortcuts</h3>
-            <div className="space-y-2 text-sm">
-              {[
-                ["⌘K / Ctrl+K", "Focus search"],
-                ["⌘⇧N / Ctrl+Shift+N", "Open capture input"],
-                ["j / ↓", "Next card"],
-                ["k / ↑", "Previous card"],
-                ["e / Enter", "Edit focused card"],
-                ["d / Delete", "Trash focused card"],
-                ["?", "Toggle this cheat sheet"],
-                ["Escape", "Deselect / close"],
-              ].map(([key, desc]) => (
-                <div key={key} className="flex items-center justify-between">
-                  <span className="text-neutral-500 dark:text-white/50">{desc}</span>
-                  <kbd className="rounded-md border border-neutral-300 bg-neutral-100 px-2 py-0.5 font-mono text-xs text-neutral-700 dark:border-white/20 dark:bg-white/10 dark:text-white/80">
-                    {key}
-                  </kbd>
-                </div>
-              ))}
-              <p className="mt-3 text-xs text-neutral-400 dark:text-white/30">
-                Mobile: swipe left → trash, swipe right → archive
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowShortcuts(false)}
-              className="mt-4 w-full rounded-full bg-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-600"
-            >
-              Got it
-            </button>
-          </div>
+              </div>
+            );
+          })}
         </div>
-      )}
 
-      {/* New folder modal */}
-      {newFolderModal && (
-        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 text-sm text-neutral-400 dark:text-white/40">Loading…</div>}>
-          <NewFolderModal onClose={() => setNewFolderModal(false)} />
-        </Suspense>
-      )}
+        {expandedCard && (
+          <InlineCardEditor
+            card={expandedCard}
+            onClose={() => setExpandedCardId(null)}
+          />
+        )}
 
+        {/* Right-click menu */}
+        {menu && (
+          <Suspense fallback={null}>
+            <ContextMenu
+              x={menu.x}
+              y={menu.y}
+              items={menu.items}
+              onClose={() => setMenu(null)}
+            />
+          </Suspense>
+        )}
 
+        {/* Manual creation dialog */}
+        {newCard && (
+          <Suspense
+            fallback={
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 text-sm text-neutral-400 dark:text-white/40">
+                Loading…
+              </div>
+            }
+          >
+            <NewCardModal
+              existingCategories={categories}
+              initialCategory={newCard.category}
+              onClose={() => setNewCard(null)}
+            />
+          </Suspense>
+        )}
+
+        {/* Folder container view */}
+        {folderModal && (
+          <Suspense
+            fallback={
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 text-sm text-neutral-400 dark:text-white/40">
+                Loading…
+              </div>
+            }
+          >
+            <FolderModal
+              folder={folderModal}
+              onClose={() => setFolderModal(null)}
+              onSelectCard={(id) => onSelectCard(id)}
+            />
+          </Suspense>
+        )}
+
+        {/* Shortcut cheat sheet */}
+        {showShortcuts && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowShortcuts(false)}
+            onKeyDown={(e) => e.key === "Escape" && setShowShortcuts(false)}
+            role="dialog"
+            aria-label="Keyboard shortcuts"
+          >
+            <div
+              className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-[#1d1f3a]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-white">
+                Keyboard Shortcuts
+              </h3>
+              <div className="space-y-2 text-sm">
+                {[
+                  ["⌘K / Ctrl+K", "Focus search"],
+                  ["⌘⇧N / Ctrl+Shift+N", "Open capture input"],
+                  ["j / ↓", "Next card"],
+                  ["k / ↑", "Previous card"],
+                  ["e / Enter", "Edit focused card"],
+                  ["d / Delete", "Trash focused card"],
+                  ["?", "Toggle this cheat sheet"],
+                  ["Escape", "Deselect / close"],
+                ].map(([key, desc]) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <span className="text-neutral-500 dark:text-white/50">
+                      {desc}
+                    </span>
+                    <kbd className="rounded-md border border-neutral-300 bg-neutral-100 px-2 py-0.5 font-mono text-xs text-neutral-700 dark:border-white/20 dark:bg-white/10 dark:text-white/80">
+                      {key}
+                    </kbd>
+                  </div>
+                ))}
+                <p className="mt-3 text-xs text-neutral-400 dark:text-white/30">
+                  Mobile: swipe left → trash, swipe right → archive
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShortcuts(false)}
+                className="mt-4 w-full rounded-full bg-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-600"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* New folder modal */}
+        {newFolderModal && (
+          <Suspense
+            fallback={
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 text-sm text-neutral-400 dark:text-white/40">
+                Loading…
+              </div>
+            }
+          >
+            <NewFolderModal onClose={() => setNewFolderModal(false)} />
+          </Suspense>
+        )}
+      </div>
     </section>
   );
 }

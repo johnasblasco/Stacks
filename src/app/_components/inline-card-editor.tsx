@@ -1,24 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "@/trpc/react";
 import type { Card } from "./board";
 
-/** Google Keep color palette. */
 const NOTE_COLORS = [
-  { name: "Default", bg: "", border: "" },
-  { name: "Coral",   bg: "bg-[#faafa8] dark:bg-[#3b1c1c]", border: "border-[#f28b82] dark:border-[#a84040]" },
-  { name: "Peach",   bg: "bg-[#f7bdce] dark:bg-[#3b2428]", border: "border-[#fbbc04] dark:border-[#a88030]" },
-  { name: "Sand",    bg: "bg-[#fcf4a3] dark:bg-[#3b3820]", border: "border-[#fff475] dark:border-[#a89840]" },
-  { name: "Mint",    bg: "bg-[#c9f2c7] dark:bg-[#1c3b1c]", border: "border-[#ccff90] dark:border-[#40a840]" },
-  { name: "Sage",    bg: "bg-[#c4edb8] dark:bg-[#1c3320]", border: "border-[#a8dab5] dark:border-[#408a60]" },
-  { name: "Fog",     bg: "bg-[#d4e5fc] dark:bg-[#1c263b]", border: "border-[#aecbfa] dark:border-[#4060a8]" },
-  { name: "Storm",   bg: "bg-[#d3d5fc] dark:bg-[#201c3b]", border: "border-[#d7aefb] dark:border-[#6040a8]" },
-  { name: "Dusk",    bg: "bg-[#e8d5f5] dark:bg-[#2c1c3b]", border: "border-[#b39ddb] dark:border-[#7040a0]" },
-  { name: "Blossom", bg: "bg-[#fce4ec] dark:bg-[#3b1c28]", border: "border-[#f48fb1] dark:border-[#a84060]" },
-  { name: "Clay",    bg: "bg-[#efebe9] dark:bg-[#2a2523]", border: "border-[#d7ccc8] dark:border-[#7a7068]" },
-  { name: "Chalk",   bg: "bg-[#e8eaed] dark:bg-[#252729]", border: "border-[#dadce0] dark:border-[#606468]" },
+  { name: "Default", swatch: "bg-white dark:bg-[#151823]" },
+  { name: "Coral", swatch: "bg-rose-200 dark:bg-rose-950" },
+  { name: "Peach", swatch: "bg-orange-200 dark:bg-orange-950" },
+  { name: "Sand", swatch: "bg-amber-200 dark:bg-amber-950" },
+  { name: "Mint", swatch: "bg-emerald-200 dark:bg-emerald-950" },
+  { name: "Sage", swatch: "bg-lime-200 dark:bg-lime-950" },
+  { name: "Fog", swatch: "bg-sky-200 dark:bg-sky-950" },
+  { name: "Storm", swatch: "bg-indigo-200 dark:bg-indigo-950" },
+  { name: "Dusk", swatch: "bg-violet-200 dark:bg-violet-950" },
+  { name: "Blossom", swatch: "bg-pink-200 dark:bg-pink-950" },
+  { name: "Clay", swatch: "bg-stone-200 dark:bg-stone-800" },
+  { name: "Chalk", swatch: "bg-neutral-200 dark:bg-neutral-800" },
 ] as const;
 
 interface InlineCardEditorProps {
@@ -26,10 +25,6 @@ interface InlineCardEditorProps {
   onClose: () => void;
 }
 
-/**
- * Google Keep-style inline editor: replaces the card preview with editable
- * title, note body, folder, and a toolbar — all in place, no modal.
- */
 export function InlineCardEditor({ card, onClose }: InlineCardEditorProps) {
   const [title, setTitle] = useState(card.title);
   const [note, setNote] = useState(card.note);
@@ -37,12 +32,10 @@ export function InlineCardEditor({ card, onClose }: InlineCardEditorProps) {
   const [color, setColor] = useState<string | null>(card.color);
   const [showColors, setShowColors] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
-  const colorPanelRef = useRef<HTMLDivElement>(null);
 
+  const { data: categories = [] } = api.cards.categories.useQuery();
   const utils = api.useUtils();
   const update = api.cards.update.useMutation({
     onSuccess: async () => {
@@ -54,68 +47,37 @@ export function InlineCardEditor({ card, onClose }: InlineCardEditorProps) {
     },
     onError: () => {
       setSaving(false);
+      setError("The card could not be saved. Please try again.");
     },
   });
 
-  // Auto-focus title
   useEffect(() => {
-    const timer = setTimeout(() => titleRef.current?.focus(), 50);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Close on click outside
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        saveAndClose();
-      }
+    titleRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
     };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, note, category, color]);
-
-  // Close on Escape
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
     };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  // Close color panel on outside click
-  useEffect(() => {
-    if (!showColors) return;
-    const handleClick = (e: MouseEvent) => {
-      if (colorPanelRef.current && !colorPanelRef.current.contains(e.target as Node)) {
-        setShowColors(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showColors]);
-
-  // Auto-resize textarea
-  const autoResize = useCallback(() => {
-    const el = bodyRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, []);
-
-  useEffect(() => {
-    autoResize();
-  }, [note, autoResize]);
+  const links = useMemo(
+    () => Array.from(new Set(note.match(/https?:\/\/[^\s)\]}>,]+/g) ?? [])),
+    [note],
+  );
+  const wordCount = note.trim() ? note.trim().split(/\s+/).length : 0;
 
   const saveAndClose = () => {
     const trimmedTitle = title.trim();
     const trimmedNote = note.trim();
     if (!trimmedTitle && !trimmedNote) {
-      onClose();
+      setError("A card needs a title or note.");
       return;
     }
-    // Only save if something actually changed
     if (
       trimmedTitle === card.title &&
       trimmedNote === card.note &&
@@ -126,154 +88,206 @@ export function InlineCardEditor({ card, onClose }: InlineCardEditorProps) {
       return;
     }
     setSaving(true);
+    setError(null);
     update.mutate({
       id: card.id,
       title: trimmedTitle || card.title,
-      note: trimmedNote || card.note,
+      note: trimmedNote,
       summary: trimmedNote ? trimmedNote.slice(0, 200) : card.summary,
       category: category.trim() || card.category,
-      color: color ?? null,
+      color,
     });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      saveAndClose();
-    }
-  };
-
-  // Word count for note
-  const wordCount = note.trim() ? note.trim().split(/\s+/).length : 0;
-
-  const selectedColor = NOTE_COLORS.find((c) => c.name === color);
-  const cardBg = color && color !== "Default" ? selectedColor?.bg ?? "" : "";
-  const cardBorder =
-    color && color !== "Default"
-      ? `border-2 ${selectedColor?.border ?? ""}`
-      : "border-neutral-200 dark:border-white/10";
-
   return (
     <div
-      ref={containerRef}
-      className={`w-full overflow-visible rounded-xl border ${cardBorder} bg-white shadow-lg transition-all dark:bg-[#1d1f3a] ${cardBg}`}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-6"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={`card-title-${card.id}`}
     >
-      <div className="flex flex-col gap-0 p-4 pb-1">
-        {/* Folder label */}
-        <div className="mb-1 flex items-center gap-2">
-          <input
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="Folder"
-            list={`inline-folders-${card.id}`}
-            className="rounded-md border border-neutral-200 bg-transparent px-2 py-0.5 text-xs text-violet-600 outline-none focus:border-violet-400 dark:border-white/10 dark:text-violet-300 dark:focus:border-violet-400"
-          />
-          <datalist id={`inline-folders-${card.id}`}>
-            {/* Categories will be passed as prop or fetched */}
-          </datalist>
-        </div>
-
-        {/* Title */}
-        <input
-          ref={titleRef}
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Title"
-          className="w-full border-none bg-transparent text-base font-medium text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-white dark:placeholder:text-white/40"
-        />
-
-        {/* Note body */}
-        <textarea
-          ref={bodyRef}
-          value={note}
-          onChange={(e) => {
-            setNote(e.target.value);
-            autoResize();
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder="Take a note…"
-          rows={2}
-          className="w-full resize-none border-none bg-transparent text-sm leading-relaxed text-neutral-700 outline-none placeholder:text-neutral-400 dark:text-white/80 dark:placeholder:text-white/30"
-          style={{ minHeight: "48px", maxHeight: "40vh", overflow: "auto" }}
-        />
-      </div>
-
-      {/* Toolbar */}
-      {/* Word count + last edited */}
-      <div className="flex items-center justify-between px-4 pb-0 text-[10px] text-neutral-400 dark:text-white/30">
-        <span>{wordCount > 0 ? `${wordCount} word${wordCount === 1 ? "" : "s"}` : ""}</span>
-        <span>{"edited " + new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(card.savedAt))}</span>
-      </div>
-
-      <div className="flex items-center justify-between border-t border-neutral-100 px-3 py-1.5 dark:border-white/5">
-        <div className="flex items-center gap-0.5">
-          {/* Color picker */}
-          <div ref={colorPanelRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setShowColors((v) => !v)}
-              title="Background color"
-              className="rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="13.5" cy="6.5" r="0.5" fill="currentColor" />
-                <circle cx="17.5" cy="10.5" r="0.5" fill="currentColor" />
-                <circle cx="8.5" cy="7.5" r="0.5" fill="currentColor" />
-                <circle cx="6.5" cy="12" r="0.5" fill="currentColor" />
-                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
-              </svg>
-            </button>
-            {showColors && (
-              <div className="absolute bottom-full left-0 z-50 mb-2 max-h-48 w-40 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 shadow-lg [scrollbar-width:none] [-ms-overflow-style:none] dark:border-white/10 dark:bg-[#252749] [&::-webkit-scrollbar]:hidden">
-                {NOTE_COLORS.map((c) => (
-                  <button
-                    key={c.name}
-                    type="button"
-                    title={c.name}
-                    onClick={() => {
-                      setColor(c.name === "Default" ? null : c.name);
-                      setShowColors(false);
-                    }}
-                    className={`h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 ${
-                      c.border || "border-neutral-200 dark:border-white/10"
-                    } ${
-                      c.bg || "bg-white dark:bg-[#1d1f3a]"
-                    } ${
-                      color === c.name || (color === null && c.name === "Default")
-                        ? "ring-2 ring-violet-500 ring-offset-1 dark:ring-offset-[#1d1f3a]"
-                        : ""
-                    }`}
-                  >
-                    {(color === null && c.name === "Default") || color === c.name ? (
-                      <span className="text-[9px] text-violet-500">✓</span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-            )}
+      <article className="flex max-h-[85vh] min-h-[450px] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/15 bg-white shadow-2xl dark:bg-[#121520]">
+        <header className="flex items-center justify-between border-b border-neutral-200/80 px-5 py-4 sm:px-8 dark:border-white/10">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="rounded-full bg-violet-100 px-2.5 py-1 text-[10px] font-bold tracking-[0.16em] text-violet-700 uppercase dark:bg-violet-500/15 dark:text-violet-200">
+              Card reader
+            </span>
+            <span className="truncate text-xs text-neutral-400 dark:text-white/35">
+              Saved{" "}
+              {new Intl.DateTimeFormat(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }).format(new Date(card.savedAt))}
+            </span>
           </div>
-        </div>
-
-        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full px-3 py-1 text-sm text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+            aria-label="Close card"
+            className="grid h-9 w-9 place-items-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-800 dark:hover:bg-white/10 dark:hover:text-white"
           >
-            Close
+            ✕
           </button>
-          <button
-            type="button"
-            onClick={saveAndClose}
-            disabled={saving}
-            className="rounded-full bg-violet-500 px-4 py-1 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-600 active:bg-violet-700 disabled:opacity-50"
-          >
-            {saving ? "…" : "Save"}
-          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-8">
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            <svg
+              className="h-4 w-4 text-violet-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              aria-hidden="true"
+            >
+              <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
+            </svg>
+            <input
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+              list={`card-folders-${card.id}`}
+              aria-label="Folder"
+              className="min-w-28 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs font-semibold text-violet-700 outline-none focus:border-violet-400 dark:border-white/10 dark:bg-white/5 dark:text-violet-200"
+            />
+            <datalist id={`card-folders-${card.id}`}>
+              {categories.map((folder) => (
+                <option key={folder} value={folder} />
+              ))}
+            </datalist>
+          </div>
+
+          <input
+            id={`card-title-${card.id}`}
+            ref={titleRef}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter")
+                saveAndClose();
+            }}
+            placeholder="Title"
+            className="w-full bg-transparent text-2xl font-bold tracking-tight text-neutral-950 outline-none placeholder:text-neutral-300 sm:text-3xl dark:text-white dark:placeholder:text-white/25"
+          />
+
+          {card.summary && card.summary !== card.note && (
+            <div className="mt-5 rounded-2xl border border-violet-100 bg-violet-50/70 p-4 dark:border-violet-400/15 dark:bg-violet-500/10">
+              <p className="mb-1 text-[10px] font-bold tracking-[0.16em] text-violet-600 uppercase dark:text-violet-300">
+                AI summary
+              </p>
+              <p className="text-sm leading-relaxed text-neutral-700 dark:text-white/70">
+                {card.summary}
+              </p>
+            </div>
+          )}
+
+          <textarea
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter")
+                saveAndClose();
+            }}
+            placeholder="Write your note…"
+            className="mt-6 min-h-56 w-full resize-none bg-transparent text-base leading-8 text-neutral-700 outline-none placeholder:text-neutral-300 dark:text-white/75 dark:placeholder:text-white/25"
+          />
+
+          {(card.tags.length > 0 || links.length > 0 || card.url) && (
+            <div className="mt-5 space-y-4 border-t border-neutral-200/80 pt-5 dark:border-white/10">
+              {card.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {card.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-600 dark:bg-white/8 dark:text-white/55"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {Array.from(
+                  new Set(
+                    [card.url, ...links].filter((link): link is string =>
+                      Boolean(link),
+                    ),
+                  ),
+                ).map((link) => (
+                  <a
+                    key={link}
+                    href={link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="max-w-full truncate rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-violet-700 transition hover:border-violet-300 hover:bg-violet-50 dark:border-white/10 dark:bg-white/5 dark:text-violet-200"
+                  >
+                    ↗ {link}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+          {error && (
+            <p className="mt-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-200">
+              {error}
+            </p>
+          )}
         </div>
-      </div>
+
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200/80 bg-neutral-50/70 px-5 py-4 sm:px-8 dark:border-white/10 dark:bg-white/[0.025]">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowColors((value) => !value)}
+                className="rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-600 transition hover:border-neutral-300 dark:border-white/10 dark:bg-white/5 dark:text-white/60"
+              >
+                Color
+              </button>
+              {showColors && (
+                <div className="absolute bottom-full left-0 mb-2 grid w-44 grid-cols-6 gap-2 rounded-2xl border border-neutral-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-[#1b1e2b]">
+                  {NOTE_COLORS.map((option) => (
+                    <button
+                      key={option.name}
+                      type="button"
+                      title={option.name}
+                      onClick={() => {
+                        setColor(
+                          option.name === "Default" ? null : option.name,
+                        );
+                        setShowColors(false);
+                      }}
+                      className={`h-5 w-5 rounded-full border border-black/10 ${option.swatch} ${color === option.name || (!color && option.name === "Default") ? "ring-2 ring-violet-500 ring-offset-2 dark:ring-offset-[#1b1e2b]" : ""}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            <span className="text-xs text-neutral-400 dark:text-white/35">
+              {wordCount} {wordCount === 1 ? "word" : "words"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl px-4 py-2 text-sm font-semibold text-neutral-500 transition hover:bg-neutral-200/70 dark:text-white/50 dark:hover:bg-white/10"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={saveAndClose}
+              disabled={saving}
+              className="rounded-xl bg-violet-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:bg-violet-500 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        </footer>
+      </article>
     </div>
   );
 }

@@ -5,10 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/trpc/react";
 import { ThemeToggle } from "./theme-toggle";
 
-type AskResult = { kind: "answered"; answer: string; usedCardIds: number[] } | {
-  kind: "rejected";
-  reason: string;
-};
+type AskResult =
+  | { kind: "answered"; answer: string; usedCardIds: number[] }
+  | {
+      kind: "rejected";
+      reason: string;
+    };
 
 type ChatMessage = {
   role: "user" | "stacks";
@@ -54,7 +56,8 @@ export function ChatPanel({
     onError: (error) => {
       const msg = error.message?.includes("GOOGLE_GENERATIVE_AI_API_KEY")
         ? "AI isn't configured yet. Add GOOGLE_GENERATIVE_AI_API_KEY to your .env file (free key: https://aistudio.google.com/apikey)"
-        : error.message || "Something went wrong. Check your AI config and try again.";
+        : error.message ||
+          "Something went wrong. Check your AI config and try again.";
       setMessages((prev) => [
         ...prev,
         {
@@ -90,16 +93,15 @@ export function ChatPanel({
   );
 
   return (
-    <aside className="flex h-full w-full flex-col border-r border-neutral-200 bg-white dark:border-white/10 dark:bg-[#111327]">
-      <header className="border-b border-neutral-200 px-4 py-3 dark:border-white/10">
+    <aside className="flex h-full w-full flex-col border-l border-neutral-200/80 bg-white dark:border-white/10 dark:bg-[#0d101b]">
+      <header className="border-b border-neutral-200/80 px-5 py-4 dark:border-white/10">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h2 className="font-semibold text-neutral-900 dark:text-white">
-              Ask Stacks
+            <h2 className="flex items-center gap-2 font-bold tracking-tight text-neutral-950 dark:text-white">
+              <span className="text-violet-500">✦</span> AI Recall
             </h2>
             <p className="text-xs text-neutral-500 dark:text-white/40">
-              Ask anything — I can use your saved cards or answer from general
-              knowledge.
+              Search your library through conversation.
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -112,7 +114,6 @@ export function ChatPanel({
               className="flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[15px] font-medium text-red-700 transition hover:bg-neutral-100 hover:text-neutral-700 dark:border-white/15 dark:bg-white/5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
             >
               <span aria-hidden>⏻</span>
-           
             </button>
             {onClose && (
               <button
@@ -128,14 +129,22 @@ export function ChatPanel({
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-5">
         {messages.length === 0 && (
-          <div className="mt-8 space-y-2 text-center">
-            <p className="text-sm text-neutral-500 dark:text-white/50">
-              Ask me anything — I can reference your saved cards or answer from
-              general knowledge.
+          <div className="mt-6 space-y-4">
+            <div className="rounded-2xl border border-violet-100 bg-violet-50/70 p-4 dark:border-violet-400/15 dark:bg-violet-500/10">
+              <p className="text-sm font-semibold text-neutral-800 dark:text-white/80">
+                What do you want to remember?
+              </p>
+              <p className="mt-1 text-xs leading-5 text-neutral-500 dark:text-white/45">
+                Ask a question and I’ll trace the answer back to your saved
+                cards.
+              </p>
+            </div>
+            <p className="text-[10px] font-bold tracking-[0.16em] text-neutral-400 uppercase dark:text-white/30">
+              Try a prompt
             </p>
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="grid gap-2">
               {[
                 "Summarize what I've saved about React",
                 "What's the difference between REST and GraphQL?",
@@ -147,7 +156,7 @@ export function ChatPanel({
                   onClick={() => {
                     setText(suggestion);
                   }}
-                  className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs text-neutral-600 transition hover:border-violet-300 hover:text-violet-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:border-violet-400 dark:hover:text-violet-300"
+                  className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-left text-xs text-neutral-600 shadow-sm transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:border-violet-400/50 dark:hover:bg-violet-500/10 dark:hover:text-violet-200"
                 >
                   {suggestion}
                 </button>
@@ -158,12 +167,12 @@ export function ChatPanel({
         {messages.map((message, i) => (
           <div
             key={i}
-            className={`max-w-[90%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm ${
+            className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-6 whitespace-pre-wrap ${
               message.role === "user"
-                ? "ml-auto self-end bg-violet-500/80 text-white"
+                ? "ml-auto self-end bg-violet-600 text-white shadow-md shadow-violet-500/10"
                 : message.kind === "rejected"
                   ? "bg-red-500/15 text-red-700 dark:text-red-200"
-                  : "bg-neutral-100 text-neutral-800 dark:bg-white/10 dark:text-white/90"
+                  : "border border-neutral-200/70 bg-neutral-50 text-neutral-800 dark:border-white/8 dark:bg-white/5 dark:text-white/85"
             }`}
           >
             {message.text}
@@ -194,25 +203,25 @@ export function ChatPanel({
         )}
       </div>
 
-      <div className="border-t border-neutral-200 p-4 dark:border-white/10">
+      <div className="border-t border-neutral-200/80 bg-neutral-50/70 p-4 dark:border-white/10 dark:bg-white/[0.025]">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             submit();
           }}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white p-1.5 shadow-sm focus-within:border-violet-400 focus-within:ring-2 focus-within:ring-violet-400/10 dark:border-white/10 dark:bg-white/5"
         >
           <input
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Ask me anything…"
-            className="w-full rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-neutral-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/40 dark:focus:border-white/30"
+            className="w-full bg-transparent px-3 py-2 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-white dark:placeholder:text-white/35"
           />
           <button
             type="submit"
             disabled={ask.isPending || !text.trim()}
-            className="shrink-0 rounded-full bg-violet-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-400 disabled:opacity-40"
+            className="shrink-0 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:opacity-40"
           >
             {ask.isPending ? "…" : "Ask"}
           </button>
