@@ -344,17 +344,12 @@ export function Board({
     ]);
   };
 
-  const [rawCards] = api.cards.list.useSuspenseQuery(
-    {
-      q: debouncedQuery || undefined,
-      category,
-      status,
-    },
-    {
-      placeholderData: (previousData) => previousData ?? [],
-    },
-  );
-  const [categories] = api.cards.categories.useSuspenseQuery(null, {
+  const [rawCards] = api.cards.list.useSuspenseQuery({
+    q: debouncedQuery || undefined,
+    category,
+    status,
+  });
+  const [categories] = api.cards.categories.useSuspenseQuery(undefined, {
     staleTime: 5 * 60 * 1000, // folders don't change often
   });
 
